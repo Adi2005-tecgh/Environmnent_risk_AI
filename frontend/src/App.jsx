@@ -1,89 +1,74 @@
 import React from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import Dashboard from './pages/Dashboard';
-import ViolationUpload from './components/ViolationUpload';
-import { LayoutDashboard, AlertTriangle, Menu, X } from 'lucide-react';
+import LandingPage from './pages/LandingPage';
+import CitizenDashboard from './pages/CitizenDashboard';
+import GovernmentDashboard from './pages/GovernmentDashboard';
+import { LayoutDashboard, AlertTriangle, ShieldCheck, Home } from 'lucide-react';
 
 const App = () => {
-    const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const location = useLocation();
+    const isLanding = location.pathname === '/';
+    const role = location.pathname.startsWith('/citizen') ? 'citizen' : 'government';
 
-    const navLinks = [
-        { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-        { name: 'Report Violation', path: '/report', icon: AlertTriangle },
-    ];
+    // Extract base path for links (e.g. /citizen or /government)
+    const basePath = `/${role}`;
+
+    if (isLanding) {
+        return (
+            <Routes>
+                <Route path="/" element={<LandingPage />} />
+            </Routes>
+        );
+    }
 
     return (
         <div className="flex flex-col min-h-screen">
-            {/* Navigation */}
-            <nav className="bg-gov-blue text-white shadow-lg sticky top-0 z-50">
+            {/* Dynamic Header based on Role */}
+            <nav className={`${role === 'government' ? 'bg-slate-900' : 'bg-gov-blue'} text-white shadow-lg sticky top-0 z-50 transition-colors duration-500`}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between h-16 items-center">
                         <div className="flex items-center space-x-3">
-                            <div className="bg-white p-1.5 rounded-md">
-                                <div className="w-6 h-6 bg-gov-blue rounded-sm flex items-center justify-center font-bold text-xs">EG</div>
+                            <Link to="/" className="bg-white p-1.5 rounded-md hover:scale-105 transition-transform">
+                                <div className={`${role === 'government' ? 'text-slate-900' : 'text-gov-blue'} font-black text-xs`}>AN</div>
+                            </Link>
+                            <div>
+                                <span className="text-lg font-black tracking-tighter uppercase italic">Aero<span className={role === 'government' ? 'text-blue-400' : 'text-gov-gold'}>Nova</span></span>
+                                <span className="ml-2 px-2 py-0.5 bg-white/10 rounded-md text-[9px] font-black uppercase tracking-widest text-white/70 border border-white/10">
+                                    {role}
+                                </span>
                             </div>
-                            <span className="text-xl font-bold tracking-tight">EcoGuard AI</span>
                         </div>
 
-                        {/* Desktop Nav */}
-                        <div className="hidden md:flex space-x-8">
-                            {navLinks.map((link) => (
-                                <Link
-                                    key={link.path}
-                                    to={link.path}
-                                    className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${location.pathname === link.path ? 'bg-blue-800 text-white' : 'text-blue-100 hover:bg-blue-800'
-                                        }`}
-                                >
-                                    <link.icon size={18} />
-                                    <span>{link.name}</span>
-                                </Link>
-                            ))}
-                        </div>
-
-                        {/* Mobile menu button */}
-                        <div className="md:hidden">
-                            <button
-                                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                className="text-blue-100 hover:text-white focus:outline-none"
-                            >
-                                {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-                            </button>
+                        <div className="flex items-center space-x-6">
+                            <Link to={basePath} className={`flex items-center space-x-2 text-sm font-bold ${location.pathname === basePath ? 'text-white' : 'text-white/60 hover:text-white'}`}>
+                                <LayoutDashboard size={18} />
+                                <span className="hidden sm:inline">Dashboard</span>
+                            </Link>
+                            <Link to="/" className="text-white/60 hover:text-white transition-colors">
+                                <Home size={18} />
+                            </Link>
                         </div>
                     </div>
                 </div>
-
-                {/* Mobile Nav */}
-                {isMenuOpen && (
-                    <div className="md:hidden bg-blue-900 px-2 pt-2 pb-3 space-y-1 border-t border-blue-800">
-                        {navLinks.map((link) => (
-                            <Link
-                                key={link.path}
-                                to={link.path}
-                                onClick={() => setIsMenuOpen(false)}
-                                className={`flex items-center space-x-2 px-3 py-2 rounded-md ${location.pathname === link.path ? 'bg-blue-800 text-white' : 'text-blue-100'
-                                    }`}
-                            >
-                                <link.icon size={18} />
-                                <span>{link.name}</span>
-                            </Link>
-                        ))}
-                    </div>
-                )}
             </nav>
 
             {/* Main Content */}
-            <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+            <main className={`flex-grow ${role === 'government' ? 'max-w-[1650px]' : 'max-w-7xl'} mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 transition-all duration-500`}>
                 <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/report" element={<div className="max-w-2xl mx-auto"><ViolationUpload /></div>} />
+                    <Route path="/citizen" element={<CitizenDashboard />} />
+                    <Route path="/government" element={<GovernmentDashboard />} />
+                    <Route path="/goverment" element={<GovernmentDashboard />} />
                 </Routes>
             </main>
 
             {/* Footer */}
             <footer className="bg-slate-100 border-t border-slate-200 py-6">
-                <div className="max-w-7xl mx-auto px-4 text-center text-slate-500 text-sm">
-                    &copy; 2026 Ministry of Environment & Forests. EcoGuard AI Decision Support System.
+                <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-widest gap-4">
+                    <span>&copy; 2026 Ministry of Environment & Forests</span>
+                    <div className="flex space-x-6">
+                        <span className="flex items-center gap-1"><ShieldCheck size={14} /> Official DSS</span>
+                        <span>Version 2.0.0-PRO</span>
+                    </div>
                 </div>
             </footer>
         </div>

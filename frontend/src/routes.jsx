@@ -1,15 +1,20 @@
 import React from 'react';
-import Dashboard from './pages/Dashboard';
-import ViolationUpload from './components/ViolationUpload';
+import LandingPage from './pages/LandingPage';
+import CitizenDashboard from './pages/CitizenDashboard';
+import GovernmentDashboard from './pages/GovernmentDashboard';
 
 export const routes = [
     {
         path: '/',
-        element: <Dashboard />,
+        element: <LandingPage />,
     },
     {
-        path: '/report',
-        element: <ViolationUpload />,
+        path: '/citizen',
+        element: <CitizenDashboard />,
+    },
+    {
+        path: '/government',
+        element: <GovernmentDashboard />,
     }
 ];
 

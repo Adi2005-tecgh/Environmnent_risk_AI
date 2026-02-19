@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Upload, Camera, Send, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { reportViolation } from '../api/api';
 
-const ViolationUpload = () => {
+const ViolationUpload = ({ hideHeader = false }) => {
     const [formData, setFormData] = useState({
         name: '',
         location: '',
@@ -57,15 +57,17 @@ const ViolationUpload = () => {
 
     return (
         <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-200">
-            <div className="flex items-center space-x-4 mb-8">
-                <div className="bg-rose-100 p-3 rounded-2xl text-rose-600">
-                    <AlertCircle size={32} />
+            {!hideHeader && (
+                <div className="flex items-center space-x-4 mb-8">
+                    <div className="bg-rose-100 p-3 rounded-2xl text-rose-600">
+                        <AlertCircle size={32} />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Report Violation</h2>
+                        <p className="text-slate-400 font-medium text-sm">Real-time citizen monitoring system</p>
+                    </div>
                 </div>
-                <div>
-                    <h2 className="text-2xl font-black text-slate-800 tracking-tight">Report Violation</h2>
-                    <p className="text-slate-400 font-medium text-sm">Real-time citizen monitoring system</p>
-                </div>
-            </div>
+            )}
 
             {result ? (
                 <div className="animate-in fade-in zoom-in duration-300">
