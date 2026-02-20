@@ -20,15 +20,18 @@ def create_app(config_class=Config):
     from .routes.anomaly import anomaly_bp
     from .routes.hotspot import hotspot_bp
     from .routes.complaints import complaints_bp
+    from .routes.gov_analytics import gov_analytics_bp
     
     app.register_blueprint(predict_bp, url_prefix='/api')
     app.register_blueprint(risk_bp, url_prefix='/api')
     app.register_blueprint(anomaly_bp, url_prefix='/api')
     app.register_blueprint(hotspot_bp, url_prefix='/api')
     app.register_blueprint(complaints_bp, url_prefix='/api')
+    app.register_blueprint(gov_analytics_bp, url_prefix='/api')
     
     @app.route('/health')
     def health_check():
         return {'status': 'healthy'}, 200
         
     return app
+

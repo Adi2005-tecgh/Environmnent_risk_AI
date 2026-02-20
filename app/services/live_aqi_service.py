@@ -38,24 +38,13 @@ class LiveAQIService:
 
     def fetch_live_pollution(self, city: str) -> Optional[Dict]:
         """
-        Fetch live pollution data from WAQI API.
+        Fetch live pollution data, weather, and forecast from WAQI API.
 
         Args:
             city: City name (e.g., 'Delhi', 'Mumbai')
 
         Returns:
-            Dictionary with pollutant readings or None if API fails
-            {
-                'aqi': int,
-                'pm25': float or None,
-                'pm10': float or None,
-                'no2': float or None,
-                'so2': float or None,
-                'o3': float or None,
-                'co': float or None,
-                'timestamp': str,
-                'station': str
-            }
+            Comprehensive dictionary with pollution, weather, and forecast data
         """
         try:
             # Build API URL
@@ -80,24 +69,57 @@ class LiveAQIService:
                 logger.warning(f"No AQI value in WAQI response for {city}")
                 return None
 
-            # Safely extract pollutants (may not all be present)
+            # Safely extract pollutants, weather, forecast, and metadata
             iaqi = data.get('data', {}).get('iaqi', {})
+            forecast = data.get('data', {}).get('forecast', {})
+            city_info = data.get('data', {}).get('city', {})
+
+            # Extract dominant pollutant
+            def get_dominant_pollutant():
+                pollutants = {
+                    'pm25': iaqi.get('pm25', {}).get('v'),
+                    'pm10': iaqi.get('pm10', {}).get('v'),
+                    'no2': iaqi.get('no2', {}).get('v'),
+                    'o3': iaqi.get('o3', {}).get('v'),
+                    'so2': iaqi.get('so2', {}).get('v'),
+                    'co': iaqi.get('co', {}).get('v'),
+                }
+                valid = {k: v for k, v in pollutants.items() if v is not None}
+                return max(valid, key=valid.get) if valid else None
 
             pollution_reading = {
+                # Core AQI
                 'aqi': int(aqi),
+                # Pollutants (µg/m³ or ppb)
                 'pm25': iaqi.get('pm25', {}).get('v'),
                 'pm10': iaqi.get('pm10', {}).get('v'),
                 'no2': iaqi.get('no2', {}).get('v'),
                 'so2': iaqi.get('so2', {}).get('v'),
                 'o3': iaqi.get('o3', {}).get('v'),
                 'co': iaqi.get('co', {}).get('v'),
+                'dominantpol': get_dominant_pollutant(),
+                # Weather data
+                'temperature': iaqi.get('t', {}).get('v'),
+                'humidity': iaqi.get('h', {}).get('v'),
+                'pressure': iaqi.get('p', {}).get('v'),
+                'wind_speed': iaqi.get('w', {}).get('v'),
+                'wind_direction': iaqi.get('wd', {}).get('v'),
+                'wind_gust': iaqi.get('wg', {}).get('v'),
+                'dew_point': iaqi.get('dew', {}).get('v'),
+                # Metadata
                 'timestamp': datetime.utcnow().isoformat(),
-                'station': data.get('data', {}).get('city', {}).get('name', city),
+                'station': city_info.get('name', city),
+                'geo': city_info.get('geo'),
+                # Forecast (pm25, pm10, uvi averages for next 3 days)
+                'forecast_pm25_avg': self._extract_forecast_avg(forecast, 'pm25'),
+                'forecast_pm10_avg': self._extract_forecast_avg(forecast, 'pm10'),
+                'forecast_uvi_avg': self._extract_forecast_avg(forecast, 'uvi'),
             }
 
             logger.info(
                 f"✅ Live data fetched for {city}: AQI={aqi}, "
-                f"PM2.5={pollution_reading['pm25']}, PM10={pollution_reading['pm10']}"
+                f"PM2.5={pollution_reading['pm25']}, PM10={pollution_reading['pm10']}, "
+                f"DominantPol={pollution_reading['dominantpol']}, Temp={pollution_reading['temperature']}°C"
             )
 
             return pollution_reading
@@ -111,6 +133,17 @@ class LiveAQIService:
         except Exception as e:
             logger.error(f"❌ Error fetching live data for {city}: {str(e)}")
             return None
+
+    def _extract_forecast_avg(self, forecast: Dict, pollutant: str) -> Optional[float]:
+        """Extract 3-day average forecast for a pollutant."""
+        try:
+            pdata = forecast.get(pollutant, {})
+            if isinstance(pdata, dict):
+                values = [float(v.get('avg', 0)) for v in pdata.values() if isinstance(v, dict)]
+                return float(np.mean(values)) if values else None
+        except Exception:
+            pass
+        return None
 
     def add_to_buffer(self, city: str, pollution_reading: Dict) -> None:
         """

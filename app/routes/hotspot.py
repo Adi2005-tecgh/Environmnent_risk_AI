@@ -2,14 +2,21 @@ from flask import Blueprint, jsonify
 import pandas as pd
 import numpy as np
 import os
+import logging
 from ..model_loader import model_loader
 from ..config import Config
+from ..services.live_aqi_service import get_live_aqi_service
+from ..services.environmental_intelligence import get_environmental_intelligence
 
+logger = logging.getLogger(__name__)
 hotspot_bp = Blueprint('hotspot', __name__)
 
 @hotspot_bp.route('/hotspots/<city>', methods=['GET'])
 def get_hotspots(city):
     try:
+        intelligence = get_environmental_intelligence()
+        live_aqi_service = get_live_aqi_service()
+        
         if not os.path.exists(Config.STATION_DATASET_PATH):
             return jsonify({'error': 'Station dataset not found'}), 500
             
@@ -51,17 +58,6 @@ def get_hotspots(city):
         
         X_scaled = scaler.transform(features)
         
-        # DBSCAN in scikit-learn doesn't have a 'predict' for new data usually, 
-        # but here we are using it to find clusters in the CURRENT city data
-        # Actually, the user asked to USE the model. DBSCAN fit_predict is what was used.
-        # Since it's a clustering model, we'll re-run fit_predict or use it to find clusters in the city data.
-        # However, the user said "Use hotspot_dbscan.pkl".
-        # In scikit-learn, DBSCAN doesn't have predict(). You fit on the data.
-        # We can use the trained model's EPS and MIN_SAMPLES to cluster the city data.
-        
-        # If the user wants to "use" the saved model, they might mean use its parameters.
-        # Let's perform fit_predict on the city's scaled data using the model's params.
-        
         clusters = model.fit_predict(X_scaled)
         pivot_df["cluster"] = clusters
         
@@ -73,13 +69,58 @@ def get_hotspots(city):
             elif score < 50: return "Moderate"
             elif score < 60: return "High"
             else: return "Extreme"
-            
+        
         hotspots["severity"] = hotspots["pollution_score"].apply(assign_severity)
+        
+        # Add source inference using live reading if available
+        live_reading, _ = live_aqi_service.fetch_and_buffer(city)
+        source_type = "Unknown"
+        source_desc = "Source not determined"
+        
+        if live_reading:
+            context = intelligence.compute_environmental_context(live_reading)
+            source_type, source_desc = intelligence.infer_pollution_source(context)
+        
+        # Infer source for each hotspot station based on dominant pollutant pattern
+        def infer_station_source(row):
+            """Infer source for a specific station based on available pollutant columns."""
+            pollutant_values = {}
+            for col in pollutant_cols:
+                if col in row.index and pd.notna(row[col]):
+                    pollutant_values[col] = row[col]
+            
+            if not pollutant_values:
+                return "Mixed"
+            
+            dominant_pollutant = max(pollutant_values, key=pollutant_values.get)
+            
+            source_map = {
+                'pm25': 'Combustion',
+                'pm10': 'Dust',
+                'pm2.5': 'Combustion',
+                'no2': 'Traffic',
+                'no': 'Traffic',
+                'so2': 'Industrial',
+                'so': 'Industrial',
+                'o3': 'Photochemical',
+                'co': 'Vehicle',
+            }
+            
+            return source_map.get(dominant_pollutant.lower(), 'Mixed')
+        
+        hotspots["inferred_source"] = hotspots.apply(infer_station_source, axis=1)
+        
+        logger.info(
+            f"[HOTSPOTS] {city}: {len(hotspots)} hotspots detected, "
+            f"Overall source: {source_type}"
+        )
         
         return jsonify({
             'city': city,
             'total_stations': len(pivot_df),
             'hotspot_stations_count': len(hotspots),
+            'city_pollution_source': source_type,
+            'source_description': source_desc,
             'hotspots': [
                 {
                     'station': row['station'],
@@ -87,10 +128,12 @@ def get_hotspots(city):
                     'longitude': float(row['longitude']),
                     'pollution_score': float(round(row['pollution_score'], 2)),
                     'severity': row['severity'],
-                    'cluster': int(row['cluster'])
+                    'cluster': int(row['cluster']),
+                    'inferred_source': row['inferred_source'],
                 } for _, row in hotspots.iterrows()
             ]
         }), 200
 
     except Exception as e:
+        logger.error(f"[ERROR] Hotspot endpoint failed: {str(e)}")
         return jsonify({'error': str(e)}), 500
