@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getForecast, getRisk, getAnomalies, getHotspots } from '../api/api';
+import { getForecast, getRisk, getAnomalies, getHotspots, getResourceDeployment, getEconomicImpact } from '../api/api';
 import CitySelector from '../components/CitySelector';
 import RiskCard from '../components/RiskCard';
 import ForecastChart from '../components/ForecastChart';
@@ -22,17 +22,19 @@ import { Shield, RefreshCw, AlertCircle, FileText, Settings, TrendingUp, Activit
 const GovernmentDashboard = () => {
     const [selectedCity, setSelectedCity] = useState('Delhi');
     const [activeTab, setActiveTab] = useState('overview');
-    const [data, setData] = useState({ forecast: null, risk: null, anomalies: null, hotspots: null });
-    const [loading, setLoading] = useState({ forecast: true, risk: true, anomalies: true, hotspots: true });
+    const [data, setData] = useState({ forecast: null, risk: null, anomalies: null, hotspots: null, resourceDeployment: null, economicImpact: null });
+    const [loading, setLoading] = useState({ forecast: true, risk: true, anomalies: true, hotspots: true, resourceDeployment: true, economicImpact: true });
 
     const fetchData = useCallback(async (city) => {
-        setLoading({ forecast: true, risk: true, anomalies: true, hotspots: true });
+        setLoading({ forecast: true, risk: true, anomalies: true, hotspots: true, resourceDeployment: true, economicImpact: true });
 
         const fetchers = [
             { key: 'forecast', fn: getForecast },
             { key: 'risk', fn: getRisk },
             { key: 'anomalies', fn: getAnomalies },
-            { key: 'hotspots', fn: getHotspots }
+            { key: 'hotspots', fn: getHotspots },
+            { key: 'resourceDeployment', fn: getResourceDeployment },
+            { key: 'economicImpact', fn: getEconomicImpact }
         ];
 
         fetchers.forEach(async ({ key, fn }) => {
@@ -40,7 +42,7 @@ const GovernmentDashboard = () => {
                 const response = await fn(city);
                 setData(prev => ({ ...prev, [key]: response.data }));
             } catch (err) {
-                console.error(`Gov Data Fetch Error:`, err);
+                console.error(`Gov Data Fetch Error [${key}]:`, err);
             } finally {
                 setLoading(prev => ({ ...prev, [key]: false }));
             }

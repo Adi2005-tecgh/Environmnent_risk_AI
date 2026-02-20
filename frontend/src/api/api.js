@@ -13,6 +13,8 @@ export const getForecast = (city) => api.get(`/api/predict/${city}`);
 export const getRisk = (city) => api.get(`/api/risk/${city}`);
 export const getAnomalies = (city) => api.get(`/api/anomalies/${city}`);
 export const getHotspots = (city) => api.get(`/api/hotspots/${city}`);
+export const getResourceDeployment = (city) => api.get(`/api/government/resource-deployment/${city}`);
+export const getEconomicImpact = (city) => api.get(`/api/government/economic-impact/${city}`);
 
 export const reportViolation = (formData) => {
     return api.post('/api/report_violation', formData, {
