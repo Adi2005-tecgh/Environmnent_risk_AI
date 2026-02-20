@@ -8,6 +8,9 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key'
     DEBUG = True
     
+    # WAQI API Configuration
+    WAQI_TOKEN = os.environ.get('WAQI_TOKEN', '12ad7099ee38e34b4eeafa2059289e0d763f9a6e')  # Production token
+    
     # Paths
     UPLOAD_FOLDER = os.path.join(BASE_DIR, 'app', 'uploads')
     DATA_FOLDER = os.path.join(BASE_DIR, 'data')
