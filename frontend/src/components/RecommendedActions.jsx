@@ -1,9 +1,14 @@
 import React, { useMemo } from 'react';
 import { CheckCircle, AlertCircle, Zap, ShieldCheck } from 'lucide-react';
+import { generatePollutantSuggestions } from '../utils/suggestionsHelper';
 
-const RecommendedActions = ({ currentAQI = 100, riskLevel = 'Low', hotspotCount = 0, anomalyCount = 0 }) => {
+const RecommendedActions = ({ currentAQI = 100, riskLevel = 'Low', hotspotCount = 0, anomalyCount = 0, pollutants = {}, hotspots = [] }) => {
     const recommendations = useMemo(() => {
         const actions = [];
+        const hotspotsList = Array.isArray(hotspots) ? hotspots : [];
+        const combustionCount = hotspotsList.filter(h => h && String(h.inferred_source ?? '') === 'Combustion').length;
+        const dustCount = hotspotsList.filter(h => h && String(h.inferred_source ?? '') === 'Dust').length;
+        const trafficCount = hotspotsList.filter(h => h && String(h.inferred_source ?? '') === 'Traffic').length;
 
         if (currentAQI > 200 || riskLevel === 'Extreme') {
             actions.push({
@@ -65,6 +70,34 @@ const RecommendedActions = ({ currentAQI = 100, riskLevel = 'Low', hotspotCount 
             });
         }
 
+        // Add pollutant-based suggestions
+        const pollutantSuggestions = generatePollutantSuggestions(pollutants || {});
+        pollutantSuggestions.forEach((suggestion, index) => {
+            actions.push({
+                id: `pollutant_${index}`,
+                title: suggestion,
+                description: 'Recommended action based on pollutant levels',
+                priority: 'high',
+                icon: '⚠️'
+            });
+        });
+
+        // Source-based recommendations (append, do not overwrite)
+        const maxSource = Math.max(combustionCount, dustCount, trafficCount);
+        if (maxSource > 0) {
+            if (combustionCount === maxSource && combustionCount >= dustCount && combustionCount >= trafficCount) {
+                actions.push({ id: 'source-industrial', title: 'Increase industrial inspections', description: 'Focus on combustion sources; enforce emission audits.', priority: 'high', icon: '🏭' });
+                actions.push({ id: 'source-diesel', title: 'Restrict heavy diesel vehicles', description: 'Temporary restrictions in hotspot zones.', priority: 'high', icon: '🚛' });
+                actions.push({ id: 'source-audit', title: 'Enforce emission audits', description: 'Mandate industrial emission audits in affected areas.', priority: 'high', icon: '📋' });
+            } else if (dustCount === maxSource && dustCount >= combustionCount && dustCount >= trafficCount) {
+                actions.push({ id: 'source-sprinklers', title: 'Deploy water sprinklers', description: 'Dust suppression in construction and exposed areas.', priority: 'high', icon: '💧' });
+                actions.push({ id: 'source-construction', title: 'Restrict construction', description: 'Limit high-dust construction activities in hotspot zones.', priority: 'high', icon: '🏗️' });
+            } else if (trafficCount === maxSource && trafficCount >= combustionCount && trafficCount >= dustCount) {
+                actions.push({ id: 'source-traffic', title: 'Traffic flow restrictions', description: 'Implement traffic management in high-pollution corridors.', priority: 'high', icon: '🚦' });
+                actions.push({ id: 'source-transport', title: 'Promote public transport', description: 'Encourage use of public transport to reduce vehicle emissions.', priority: 'high', icon: '🚌' });
+            }
+        }
+
         // Default message if no critical actions
         if (actions.length === 0) {
             actions.push({
@@ -77,7 +110,7 @@ const RecommendedActions = ({ currentAQI = 100, riskLevel = 'Low', hotspotCount 
         }
 
         return actions;
-    }, [currentAQI, riskLevel, hotspotCount, anomalyCount]);
+    }, [currentAQI, riskLevel, hotspotCount, anomalyCount, pollutants, hotspots]);
 
     const getPriorityTheme = (priority) => {
         const themes = {

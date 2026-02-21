@@ -40,6 +40,11 @@ const GovernmentDashboard = () => {
         fetchers.forEach(async ({ key, fn }) => {
             try {
                 const response = await fn(city);
+                console.log(`[Gov Dashboard] Fetched ${key}:`, response.data);
+                if (key === 'risk') {
+                    console.log(`[Gov Dashboard] Risk data pollutants:`, response.data?.pollutants);
+                    console.log(`[Gov Dashboard] Risk data latest_aqi:`, response.data?.latest_aqi);
+                }
                 setData(prev => ({ ...prev, [key]: response.data }));
             } catch (err) {
                 console.error(`Gov Data Fetch Error [${key}]:`, err);
@@ -210,6 +215,15 @@ const GovernmentDashboard = () => {
                             currentAQI={data.risk?.latest_aqi || 100}
                             riskLevel={data.risk?.risk_level || 'Low'}
                             escalationProbability={escalationProbability}
+                            pollutants={data.risk?.pollutants || {}}
+                            city={selectedCity}
+                            dominantSource={data?.hotspots?.city_pollution_source ?? 'Unknown'}
+                            sourceDescription={data?.hotspots?.source_description ?? ''}
+                            hotspotCoverage={(() => {
+                                const total = Number(data?.hotspots?.total_stations ?? 0);
+                                const hot = Number(data?.hotspots?.hotspot_stations_count ?? 0);
+                                return total > 0 ? Math.round((hot / total) * 100) : 0;
+                            })()}
                         />
                     )}
 
@@ -218,6 +232,7 @@ const GovernmentDashboard = () => {
                             currentAQI={data.risk?.latest_aqi || 100}
                             hotspotCount={data.hotspots?.hotspot_stations_count || 0}
                             anomalyCount={data.anomalies?.anomaly_count || 0}
+                            pollutants={data.risk?.pollutants || {}}
                         />
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                             <h3 className="text-lg font-black text-slate-900 uppercase tracking-tighter mb-6">System Health</h3>
@@ -245,7 +260,10 @@ const GovernmentDashboard = () => {
                         />
                     </div>
 
-                    <PolicySimulator currentAQI={data.risk?.latest_aqi || 100} />
+                    <PolicySimulator
+                        currentAQI={data.risk?.latest_aqi ?? 100}
+                        pollutants={data.risk?.pollutants ?? {}}
+                    />
                 </div>
             )}
 
@@ -269,16 +287,37 @@ const GovernmentDashboard = () => {
                             <div className="space-y-4">
                                 <div>
                                     <p className="text-sm font-bold text-slate-700">Total Stations</p>
-                                    <p className="text-3xl font-black text-slate-900">{data.hotspots?.total_stations || 0}</p>
+                                    <p className="text-3xl font-black text-slate-900">{Number(data?.hotspots?.total_stations ?? 0)}</p>
                                 </div>
                                 <div className="border-t border-slate-200 pt-4">
                                     <p className="text-sm font-bold text-slate-700">Hotspot Zones</p>
-                                    <p className="text-3xl font-black text-rose-600">{data.hotspots?.hotspot_stations_count || 0}</p>
+                                    <p className="text-3xl font-black text-rose-600">{Number(data?.hotspots?.hotspot_stations_count ?? 0)}</p>
+                                    {(() => {
+                                        const totalStations = Number(data?.hotspots?.total_stations ?? 0);
+                                        const hotspotStations = Number(data?.hotspots?.hotspot_stations_count ?? 0);
+                                        const hotspotCoverage = totalStations > 0 ? Math.round((hotspotStations / totalStations) * 100) : 0;
+                                        let coverageText = '';
+                                        if (hotspotCoverage > 75) coverageText = 'City-wide pollution event detected affecting most monitoring stations.';
+                                        else if (hotspotCoverage >= 40 && hotspotCoverage <= 75) coverageText = 'Multiple regional pollution clusters detected.';
+                                        else if (hotspotCoverage < 40) coverageText = 'Localized pollution hotspots detected.';
+                                        return coverageText ? <p className="text-xs text-slate-600 mt-2">{coverageText}</p> : null;
+                                    })()}
                                 </div>
                             </div>
                         </div>
-                        <ClusterTable hotspots={data.hotspots?.hotspots || []} loading={loading.hotspots} />
+                        <ClusterTable hotspots={Array.isArray(data?.hotspots?.hotspots) ? data.hotspots.hotspots : []} loading={loading.hotspots} />
                     </div>
+                    {(() => {
+                        const dominantSource = data?.hotspots?.city_pollution_source ?? 'Unknown';
+                        const sourceDescription = data?.hotspots?.source_description ?? '';
+                        if (!dominantSource && !sourceDescription) return null;
+                        return (
+                            <div className="bg-white p-4 rounded-2xl border border-slate-200">
+                                <p className="text-xs font-bold text-slate-700">Primary Pollution Driver: {String(dominantSource)}</p>
+                                {sourceDescription ? <p className="text-xs text-slate-600 mt-1">{String(sourceDescription)}</p> : null}
+                            </div>
+                        );
+                    })()}
                 </div>
             )}
 
@@ -333,6 +372,8 @@ const GovernmentDashboard = () => {
                                 riskLevel={data.risk?.risk_level || 'Low'}
                                 hotspotCount={data.hotspots?.hotspot_stations_count || 0}
                                 anomalyCount={data.anomalies?.anomaly_count || 0}
+                                pollutants={data.risk?.pollutants || {}}
+                                hotspots={Array.isArray(data?.hotspots?.hotspots) ? data.hotspots.hotspots : []}
                             />
                         )}
                     </div>

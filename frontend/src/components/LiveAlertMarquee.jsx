@@ -30,7 +30,7 @@ const LiveAlertMarquee = ({ hotspots = [], riskLevel = 'Low', currentAQI = 100 }
         severeHotspots.forEach((hotspot, idx) => {
             alertList.push({
                 id: `hotspot-${idx}`,
-                text: `⚠ ${hotspot.station} - ${hotspot.severity.toUpperCase()} - Score ${hotspot.pollution_score.toFixed(1)}`,
+                text: `⚠ ${hotspot.station} - ${hotspot.severity.toUpperCase()} - Score ${Number(hotspot.pollution_score || 0).toFixed(1)}`,
                 severity: hotspot.severity === 'Extreme' ? 'critical' : 'high'
             });
         });

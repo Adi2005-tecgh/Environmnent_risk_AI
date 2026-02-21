@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { TrendingUp, TrendingDown, Minus, Info } from 'lucide-react';
+import { getPollutantStatus } from '../utils/pollutantSeverity';
 
-const SituationSummary = ({ forecast = [], currentAQI = 100, riskLevel = 'Low', escalationProbability = 5 }) => {
+const SituationSummary = ({ forecast = [], currentAQI = 100, riskLevel = 'Low', escalationProbability = 5, pollutants = {}, city, dominantSource, sourceDescription, hotspotCoverage }) => {
     const trend = useMemo(() => {
         if (!forecast || forecast.length < 2) {
             return { direction: 'stable', icon: Minus, color: 'text-amber-600', bg: 'bg-amber-50', label: 'No Trend' };
@@ -12,10 +13,10 @@ const SituationSummary = ({ forecast = [], currentAQI = 100, riskLevel = 'Low', 
         const percentChange = ((last - first) / first) * 100;
 
         if (percentChange > 5) {
-            return { direction: 'worsening', icon: TrendingUp, color: 'text-rose-600', bg: 'bg-rose-50', label: 'Worsening', change: percentChange.toFixed(1) };
+            return { direction: 'worsening', icon: TrendingUp, color: 'text-rose-600', bg: 'bg-rose-50', label: 'Worsening', change: Number(percentChange || 0).toFixed(1) };
         }
         if (percentChange < -5) {
-            return { direction: 'improving', icon: TrendingDown, color: 'text-emerald-600', bg: 'bg-emerald-50', label: 'Improving', change: Math.abs(percentChange).toFixed(1) };
+            return { direction: 'improving', icon: TrendingDown, color: 'text-emerald-600', bg: 'bg-emerald-50', label: 'Improving', change: Number(Math.abs(percentChange || 0)).toFixed(1) };
         }
         return { direction: 'stable', icon: Minus, color: 'text-amber-600', bg: 'bg-amber-50', label: 'Stable', change: '0' };
     }, [forecast, currentAQI]);
@@ -45,6 +46,13 @@ const SituationSummary = ({ forecast = [], currentAQI = 100, riskLevel = 'Low', 
 
     // Pulsing glow for extreme conditions
     const isPulsing = currentAQI > 250 || riskLevel === 'Extreme';
+
+    // AI summary (safe, no NaN)
+    const summaryCity = city != null ? String(city) : 'This city';
+    const summarySource = dominantSource != null && String(dominantSource) !== '' ? String(dominantSource) : 'mixed';
+    const summaryCoverage = Number(hotspotCoverage ?? 0);
+    const summaryCoverageSafe = Number.isFinite(summaryCoverage) ? summaryCoverage : 0;
+    const aiSummary = `${summaryCity} is currently experiencing a ${summarySource} pollution episode affecting ${summaryCoverageSafe}% of monitoring stations.`;
 
     return (
         <div className={`relative bg-white p-8 rounded-2xl shadow-sm border border-slate-200 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 ${isPulsing ? 'ring-2 ring-rose-500/50' : ''}`}
@@ -110,10 +118,41 @@ const SituationSummary = ({ forecast = [], currentAQI = 100, riskLevel = 'Low', 
                 </div>
             </div>
 
+            {/* AI Summary Statement */}
+            {aiSummary ? (
+                <div className="mt-6 pt-4 border-t border-slate-100">
+                    <p className="text-xs font-medium text-slate-700">{aiSummary}</p>
+                </div>
+            ) : null}
+
             {/* Additional Info Footer */}
             <div className="mt-6 pt-4 border-t border-slate-100 flex items-center gap-2 text-slate-600">
                 <Info size={14} />
                 <p className="text-xs font-medium">Real-time data from {forecast?.length || 0} monitoring stations • Updated continuously</p>
+            </div>
+
+            {/* Compact Pollutant Readout */}
+            <div className="mt-4 pt-4 border-t border-slate-100">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Live Pollutant Levels</p>
+                <div className="flex flex-wrap gap-x-6 gap-y-1">
+                    {[
+                        { key: 'pm25', label: 'PM2.5' },
+                        { key: 'pm10', label: 'PM10' },
+                        { key: 'no2', label: 'NO2' },
+                        { key: 'so2', label: 'SO2' },
+                        { key: 'co', label: 'CO' },
+                        { key: 'o3', label: 'O3' },
+                    ].map(({ key, label }) => {
+                        const val = pollutants?.[key] ?? null;
+                        const status = getPollutantStatus(key, val);
+                        const display = val !== null && val !== undefined ? Number(val).toFixed(1) : '—';
+                        return (
+                            <span key={key} className="text-xs text-slate-700">
+                                <span className="font-black">{label}:</span> {display} <span className="text-slate-400">({status})</span>
+                            </span>
+                        );
+                    })}
+                </div>
             </div>
 
             <style>{`

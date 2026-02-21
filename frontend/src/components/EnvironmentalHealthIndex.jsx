@@ -1,24 +1,25 @@
 import React, { useMemo } from 'react';
 import { Heart, Activity } from 'lucide-react';
+import { calculateAnomalyDensity, clamp, safeToFixed } from '../utils/pollutantSeverity';
 
-const EnvironmentalHealthIndex = ({ currentAQI = 100, hotspotCount = 0, anomalyCount = 0 }) => {
+const EnvironmentalHealthIndex = ({ currentAQI = 100, hotspotCount = 0, anomalyCount = 0, pollutants = {} }) => {
     const totalStations = 40; // Default reference
 
     const healthMetrics = useMemo(() => {
         // AQI Impact: Lower AQI = Higher health score (max 100)
-        const aqiImpact = Math.max(0, 100 - (currentAQI / 3));
+        const aqiImpact = clamp(100 - (Number(currentAQI) || 0) / 3);
 
         // Hotspot Density: Lower is better
-        const hotspotDensity = Math.min(1, hotspotCount / totalStations);
-        const hotspotScore = (1 - hotspotDensity) * 100;
+        const hotspotDensity = Math.min(1, (Number(hotspotCount) || 0) / totalStations);
+        const hotspotScore = clamp((1 - hotspotDensity) * 100);
 
-        // Anomaly Density: Lower is better (24 hours reference)
-        const anomalyDensity = Math.min(1, anomalyCount / 24);
-        const anomalyScore = (1 - anomalyDensity) * 100;
+        // Anomaly Density: Lower is better (24 hours reference) - Now using safe calculation
+        const anomalyDensityPercent = calculateAnomalyDensity(anomalyCount, 24);
+        const anomalyScore = clamp(100 - anomalyDensityPercent);
 
-        // Overall Health Index
+        // Overall Health Index with safe clamping
         const overallScore = Math.round(
-            (aqiImpact * 0.4) + (hotspotScore * 0.3) + (anomalyScore * 0.3)
+            clamp((aqiImpact * 0.4) + (hotspotScore * 0.3) + (anomalyScore * 0.3))
         );
 
         const getHealthStatus = () => {
@@ -45,8 +46,8 @@ const EnvironmentalHealthIndex = ({ currentAQI = 100, hotspotCount = 0, anomalyC
             overallScore,
             healthStatus: getHealthStatus(),
             statusTheme: getStatusTheme(),
-            hotspotDensity: (hotspotDensity * 100).toFixed(1),
-            anomalyDensity: (anomalyDensity * 100).toFixed(1)
+            hotspotDensity: safeToFixed(hotspotDensity * 100, 1),
+            anomalyDensity: safeToFixed(anomalyDensityPercent, 1)
         };
     }, [currentAQI, hotspotCount, anomalyCount]);
 

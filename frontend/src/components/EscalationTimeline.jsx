@@ -102,7 +102,7 @@ const EscalationTimeline = ({ forecast = [], currentAQI = 100 }) => {
             {/* Legend */}
             <div className="mt-5 pt-4 border-t border-slate-100">
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Calculation</p>
-                <p className="text-[9px] text-slate-600 leading-relaxed">Base: 5% + AQI >150: +20% | AQI >200: +40%</p>
+                <p className="text-[9px] text-slate-600 leading-relaxed">Base: 5% + AQI &gt;150: +20% | AQI &gt;200: +40%</p>
             </div>
         </div>
     );

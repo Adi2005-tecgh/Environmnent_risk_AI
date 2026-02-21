@@ -6,9 +6,21 @@ const ClusterTable = ({ hotspots, loading }) => {
         return <div className="h-64 bg-slate-50 rounded-3xl animate-pulse border border-slate-100"></div>;
     }
 
+    const hotspotsList = Array.isArray(hotspots) ? hotspots : [];
+
+    // Severity breakdown (safe)
+    const severityCounts = { Extreme: 0, High: 0, Moderate: 0 };
+    hotspotsList.forEach(h => {
+        if (h && severityCounts[h.severity] !== undefined) {
+            severityCounts[h.severity]++;
+        }
+    });
+    const totalHotspots = hotspotsList.length;
+    const isExtremeMajority = totalHotspots > 0 && severityCounts.Extreme > totalHotspots * 0.5;
+
     // Aggregate stations into clusters
     const clustersMap = {};
-    hotspots.forEach(h => {
+    hotspotsList.forEach(h => {
         const cid = h.cluster;
         if (cid === -1) return; // Skip noise
         if (!clustersMap[cid]) {
@@ -93,6 +105,15 @@ const ClusterTable = ({ hotspots, loading }) => {
                         ))}
                     </tbody>
                 </table>
+            </div>
+            <div className="p-4 border-t border-slate-100">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Severity breakdown</p>
+                <p className="text-xs text-slate-700">
+                    Extreme: {Number(severityCounts.Extreme)} stations · High: {Number(severityCounts.High)} stations · Moderate: {Number(severityCounts.Moderate)} stations
+                </p>
+                {isExtremeMajority ? (
+                    <p className="text-xs text-rose-600 font-bold mt-2">Majority of this cluster is classified as Extreme severity.</p>
+                ) : null}
             </div>
         </div>
     );

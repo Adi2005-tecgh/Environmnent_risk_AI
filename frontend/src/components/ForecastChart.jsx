@@ -40,6 +40,7 @@ const ForecastChart = ({ data, loading, showMetadata = false }) => {
     };
 
     const trend = getTrend();
+    const TrendIcon = trend.icon;
 
     return (
         <div className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-200 ${showMetadata ? 'bg-slate-50/50' : ''}`}>
@@ -47,7 +48,7 @@ const ForecastChart = ({ data, loading, showMetadata = false }) => {
                 <div>
                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">3-Day Forecast</h3>
                     <div className="flex items-center space-x-2">
-                        <trend.icon size={16} className={trend.color} />
+                        <TrendIcon size={16} className={trend.color} />
                         <span className={`text-sm font-black uppercase tracking-tight ${trend.color}`}>{trend.label}</span>
                     </div>
                 </div>
@@ -56,7 +57,7 @@ const ForecastChart = ({ data, loading, showMetadata = false }) => {
                     <div className="text-right">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Var. Index</p>
                         <p className={`text-sm font-black ${percentChange > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                            {percentChange > 0 ? '+' : ''}{percentChange.toFixed(1)}%
+                            {percentChange > 0 ? '+' : ''}{Number(percentChange || 0).toFixed(1)}%
                         </p>
                     </div>
                 )}
