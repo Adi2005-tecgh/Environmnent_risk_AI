@@ -96,32 +96,6 @@ const CitizenDashboard = () => {
                 <AnomalyPanel data={data.anomalies} loading={loading.anomalies} />
             </div>
 
-            {/* 4. Tech/AI Section */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-                <div className="md:col-span-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[300px] flex flex-col">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Spatial Projection Model (Predictive Node)</h3>
-                    <div className="flex-grow">
-                        <ForecastChart data={data.forecast} loading={loading.forecast} mini={true} />
-                    </div>
-                </div>
-                <div className="md:col-span-4 bg-slate-900 p-8 rounded-2xl text-white shadow-2xl flex flex-col justify-center relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform">
-                        <Zap size={120} />
-                    </div>
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="bg-blue-600/30 p-2 rounded-lg text-blue-400">
-                                <Zap size={18} />
-                            </div>
-                            <h4 className="text-[11px] font-black uppercase tracking-widest text-blue-400">AI Intelligence Core</h4>
-                        </div>
-                        <p className="text-sm font-bold leading-relaxed italic text-slate-300">
-                            "{data.risk?.description || "Synchronizing with regional data nodes..."}"
-                        </p>
-                    </div>
-                </div>
-            </div>
-
             {/* 5. ACCOUNTABILITY & OVERSIGHT SECTION (The Redesign Area) */}
             <div className="py-12 border-t border-slate-200">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 relative">
