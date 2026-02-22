@@ -40,13 +40,35 @@ const DeploymentOptimizer = ({ hotspotCount = 0, anomalyCount = 0, riskLevel = '
                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Resource Deployment</h3>
                     <div className="flex items-center space-x-2">
                         <Truck size={16} className="text-slate-600" />
-                        <span className="text-sm font-black text-slate-800 uppercase tracking-tight">Optimizer</span>
+                        <span className="text-sm font-black text-slate-800 uppercase tracking-tight">AI Deployment Strategy Engine</span>
                     </div>
                 </div>
-                <div className={`${intensityInfo.bg} px-3 py-1.5 rounded-lg`}>
+                <div className={`${intensityInfo.bg} px-3 py-1.5 rounded-lg flex items-center gap-2`}>
                     <p className={`text-xs font-black uppercase tracking-tighter ${intensityInfo.color}`}>
                         {intensityInfo.label}
                     </p>
+                    <span className="text-[8px] text-slate-500 font-medium">
+                        Deployment Priority: {intensityInfo.label}
+                    </span>
+                </div>
+            </div>
+
+            {/* Deployment Context Panel */}
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mb-5">
+                <p className="text-xs font-black text-slate-500 mb-3">Deployment Rationale</p>
+                <ul className="text-[9px] text-slate-600 space-y-1">
+                    <li>• Inspection teams scale with hotspot concentration.</li>
+                    <li>• Dust vehicles increase when anomaly activity rises.</li>
+                    <li>• Mobile health units scale with projected healthcare burden.</li>
+                    <li>• Allocation dynamically adapts to real-time AQI risk levels.</li>
+                </ul>
+            </div>
+
+            {/* Risk Status Indicator */}
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 mb-5 flex items-center justify-between">
+                <div>
+                    <p className="text-xs font-black text-amber-700 uppercase tracking-widest">Deployment Priority: {intensityInfo.label}</p>
+                    <p className="text-[9px] text-amber-600 italic mt-1">Immediate coordinated response recommended.</p>
                 </div>
             </div>
 
@@ -64,7 +86,7 @@ const DeploymentOptimizer = ({ hotspotCount = 0, anomalyCount = 0, riskLevel = '
                             style={{ width: `${Math.min(100, (calculations.inspectionTeams / 20) * 100)}%` }}
                         ></div>
                     </div>
-                    <p className="text-[9px] text-slate-500 mt-2">From {hotspotCount} hotspots × 0.8</p>
+                    <p className="text-[9px] text-slate-500 mt-2">Based on {hotspotCount} active high-risk zones</p>
                 </div>
 
                 {/* Dust Control Vehicles */}
@@ -79,7 +101,7 @@ const DeploymentOptimizer = ({ hotspotCount = 0, anomalyCount = 0, riskLevel = '
                             style={{ width: `${Math.min(100, (calculations.dustVehicles / 20) * 100)}%` }}
                         ></div>
                     </div>
-                    <p className="text-[9px] text-slate-500 mt-2">From {anomalyCount} anomalies × 1.2</p>
+                    <p className="text-[9px] text-slate-500 mt-2">Adjusted for anomaly risk patterns</p>
                 </div>
 
                 {/* Mobile Health Units */}
@@ -94,15 +116,16 @@ const DeploymentOptimizer = ({ hotspotCount = 0, anomalyCount = 0, riskLevel = '
                             style={{ width: `${Math.min(100, (calculations.mobileHealthUnits / 30) * 100)}%` }}
                         ></div>
                     </div>
-                    <p className="text-[9px] text-slate-500 mt-2">Risk ×{calculations.riskMultiplier} ({riskLevel}) × 10</p>
+                    <p className="text-[9px] text-slate-500 mt-2">Scaled according to projected healthcare impact</p>
                 </div>
             </div>
 
             {/* Total Deployment & AI Recommendation */}
             <div className="grid grid-cols-2 gap-3">
                 <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Units</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Active Deployment Units</p>
                     <p className="text-2xl font-black text-slate-900">{calculations.totalDeployment}</p>
+                    <p className="text-[9px] text-slate-500 italic mt-2">Optimized for current environmental conditions.</p>
                 </div>
                 <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex items-center justify-center">
                     <div className="text-center">

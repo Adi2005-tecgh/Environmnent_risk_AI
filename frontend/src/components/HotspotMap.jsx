@@ -2,140 +2,204 @@ import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Layers, Map as MapIcon, Target } from 'lucide-react';
+import { Wind, Droplets, Thermometer, Info, Loader2 } from 'lucide-react';
 
-// Fix icons
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+// ─── Sub-components ────────────────────────────────────────────────────────
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-    iconUrl: markerIcon,
-    iconRetinaUrl: markerIcon2x,
-    shadowUrl: markerShadow,
-});
-
+// Smoothly pans the map when the city changes
 const ChangeView = ({ center }) => {
     const map = useMap();
     useEffect(() => {
-        if (center) map.setView(center, map.getZoom());
+        if (center && Array.isArray(center) && typeof center[0] === 'number') {
+            map.setView(center, map.getZoom());
+        }
     }, [center, map]);
     return null;
 };
 
-const HotspotMap = ({ data, loading, mode = 'station' }) => {
-    const isGov = mode === 'cluster';
+// Custom zoom buttons rendered inside the Leaflet canvas
+const ZoomControls = () => {
+    const map = useMap();
+    const btnClass =
+        'w-10 h-10 flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold text-xl';
+
+    return (
+        <div className="leaflet-top leaflet-right" style={{ zIndex: 1000, margin: '6px 6px 0 0' }}>
+            <div className="leaflet-control bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col shadow-lg">
+                <button className={`${btnClass} border-b border-slate-100`} onClick={() => map.zoomIn()}>
+                    +
+                </button>
+                <button className={btnClass} onClick={() => map.zoomOut()}>
+                    −
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// Single pollutant stat cell
+const PollutantStat = ({ icon: Icon, label, value, unit = '', loading }) => (
+    <div className="flex items-center gap-3">
+        <div className="bg-slate-100 p-1.5 rounded-lg text-slate-400 shrink-0">
+            <Icon size={12} />
+        </div>
+        <div className="min-w-0">
+            <p className="text-[8px] font-black text-slate-400 uppercase">{label}</p>
+            {loading ? (
+                <div className="h-4 w-10 bg-slate-100 animate-pulse rounded mt-0.5" />
+            ) : (
+                <p className="text-sm font-black text-slate-800 truncate">
+                    {value !== undefined && value !== null ? `${value}${unit}` : '--'}
+                </p>
+            )}
+        </div>
+    </div>
+);
+
+// ─── AQI helpers ────────────────────────────────────────────────────────────
+
+const CITY_COORDS = {
+    Delhi: [28.6139, 77.209], Mumbai: [19.076, 72.8777], Kolkata: [22.5726, 88.3639],
+    Chennai: [13.0827, 80.2707], Bengaluru: [12.9716, 77.5946], Hyderabad: [17.385, 78.4867],
+    Ahmedabad: [23.0225, 72.5714], Pune: [18.5204, 73.8567], Jaipur: [26.9124, 75.7873],
+    Lucknow: [26.8467, 80.9462],
+};
+
+const getAQIColor = (aqi) => {
+    if (!aqi || aqi <= 50) return '#10b981';
+    if (aqi <= 100) return '#fbbf24';
+    if (aqi <= 150) return '#f97316';
+    if (aqi <= 200) return '#e11d48';
+    return '#7c3aed';
+};
+
+const makeMarkerIcon = (score) => {
+    const color = getAQIColor(score);
+    const val = Math.round(score || 0);
+    return L.divIcon({
+        className: '',
+        html: `<div style="
+            background:${color};width:32px;height:32px;border-radius:50%;
+            border:2px solid white;display:flex;align-items:center;
+            justify-content:center;color:white;font-weight:900;font-size:11px;
+            box-shadow:0 4px 6px -1px rgba(0,0,0,.15);">${val}</div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+    });
+};
+
+// ─── Main component ─────────────────────────────────────────────────────────
+
+const HotspotMap = ({ data, loading, center: propCenter, cityName: propCityName, riskData, riskLoading }) => {
+    const cityName = propCityName || data?.city || 'Selected Node';
+    const hotspots = Array.isArray(data?.hotspots) ? data.hotspots : [];
+    const initialCenter = (Array.isArray(propCenter) && propCenter[0]) ? propCenter : (CITY_COORDS[cityName] || [28.6139, 77.209]);
+
+    const currentAQI = riskData?.latest_aqi ?? 0;
+    const severity = riskLoading ? 'Live…' : (riskData?.risk_level ?? 'Unknown');
+    const pollutants = riskData?.pollutants ?? {};
+    const weather = riskData?.environmental_context ?? {};
 
     if (loading) {
         return (
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-pulse h-[450px]">
-                <div className="h-4 bg-slate-200 rounded w-1/4 mb-4"></div>
-                <div className="h-full bg-slate-100 rounded-2xl w-full"></div>
-            </div>
+            <div className="h-[520px] w-full bg-slate-100 animate-pulse rounded-xl border border-slate-200" />
         );
     }
 
-    const hotspots = data?.hotspots || [];
-    const initialCenter = hotspots.length > 0
-        ? [hotspots[0].latitude, hotspots[0].longitude]
-        : [28.6139, 77.2090];
-
-    const getMarkerIcon = (severity, clusterId) => {
-        let color = '#94a3b8';
-        if (severity === 'Low') color = '#10b981';
-        if (severity === 'Moderate') color = '#fbbf24';
-        if (severity === 'High') color = '#f97316';
-        if (severity === 'Extreme') color = '#e11d48';
-
-        const size = isGov ? 24 : 16;
-
-        return L.divIcon({
-            className: "custom-marker",
-            html: `
-        <div style="background-color: ${color}; width: ${size}px; height: ${size}px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); display: flex; align-items: center; justify-content: center;">
-            ${isGov ? `<span style="color: white; font-size: 8px; font-weight: 900;">${clusterId !== -1 ? 'C' + clusterId : 'S'}</span>` : ''}
-        </div>`,
-            iconSize: [size, size],
-            iconAnchor: [size / 2, size / 2]
-        });
-    };
-
     return (
-        <div className={`bg-white p-6 rounded-3xl shadow-sm border border-slate-200 relative ${isGov ? 'ring-2 ring-slate-900 ring-offset-2' : ''}`}>
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">
-                        {isGov ? 'Geospatial Cluster Analysis' : 'Regional Hotspots'}
-                    </h3>
-                    <p className="text-sm font-black text-slate-800 tracking-tight">
-                        {hotspots.length} Passive Nodes Active
-                    </p>
-                </div>
-                <div className="flex bg-slate-100 p-1 rounded-xl">
-                    <div className={`p-2 rounded-lg ${!isGov ? 'bg-white shadow-sm text-gov-blue' : 'text-slate-400'}`}>
-                        <MapIcon size={16} />
-                    </div>
-                    <div className={`p-2 rounded-lg ${isGov ? 'bg-white shadow-sm text-gov-blue' : 'text-slate-400'}`}>
-                        <Target size={16} />
-                    </div>
-                </div>
-            </div>
+        <div className="relative h-[520px] w-full rounded-xl overflow-hidden border border-slate-200 shadow-xl">
+            {/* ── Map Canvas ── */}
+            <MapContainer
+                key={`${cityName}-${initialCenter[0]}`}
+                center={initialCenter}
+                zoom={11}
+                className="h-full w-full"
+                zoomControl={false}
+                scrollWheelZoom
+            >
+                <TileLayer
+                    url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                    attribution='&copy; OpenStreetMap contributors &copy; CARTO'
+                />
+                <ChangeView center={initialCenter} />
+                <ZoomControls />
 
-            <div className="h-[350px] w-full rounded-2xl overflow-hidden border border-slate-100 shadow-inner relative z-0">
-                <MapContainer center={initialCenter} zoom={11} className="h-full w-full">
-                    <ChangeView center={initialCenter} />
-                    <TileLayer
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-                    {hotspots.map((station, idx) => (
-                        <Marker
-                            key={idx}
-                            position={[station.latitude, station.longitude]}
-                            icon={getMarkerIcon(station.severity, station.cluster)}
-                        >
-                            <Popup className="custom-popup">
-                                <div className="p-2 min-w-[150px]">
-                                    <p className="font-black text-slate-900 text-xs uppercase mb-2 border-b border-slate-100 pb-1">{station.station}</p>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest italic">Pollution Index</span>
-                                            <span className="font-black text-slate-900 text-xs">{station.pollution_score}</span>
-                                        </div>
-                                        {isGov && (
-                                            <div className="flex justify-between items-center bg-slate-50 p-1 rounded">
-                                                <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest italic">ID Cluster</span>
-                                                <span className="font-black text-blue-600 text-xs">{station.cluster === -1 ? 'None' : 'CID-' + station.cluster}</span>
-                                            </div>
-                                        )}
-                                        <div className="flex items-center gap-2">
-                                            <div className={`w-2 h-2 rounded-full ${station.severity === 'Extreme' ? 'bg-rose-600' :
-                                                    station.severity === 'High' ? 'bg-orange-600' : 'bg-emerald-600'
-                                                }`}></div>
-                                            <span className="text-[10px] font-black uppercase tracking-tight text-slate-600">{station.severity} Risk</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Popup>
-                        </Marker>
-                    ))}
-                </MapContainer>
-
-                {/* Map Legend */}
-                <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur p-3 rounded-2xl shadow-xl border border-white/20 z-[1000] hidden md:block">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b pb-1">Legend</p>
-                    <div className="space-y-1.5">
-                        {[
-                            { label: 'Extreme', color: 'bg-rose-600' },
-                            { label: 'High', color: 'bg-orange-500' },
-                            { label: 'Moderate', color: 'bg-amber-400' },
-                            { label: 'Low', color: 'bg-emerald-500' }
-                        ].map(item => (
-                            <div key={item.label} className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${item.color}`}></div>
-                                <span className="text-[9px] font-bold text-slate-600 uppercase">{item.label}</span>
+                {hotspots.map((spot, idx) => (
+                    <Marker
+                        key={`${idx}-${spot.station}`}
+                        position={[spot.latitude, spot.longitude]}
+                        icon={makeMarkerIcon(spot.pollution_score)}
+                    >
+                        <Popup>
+                            <div className="p-1">
+                                <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5">Station</p>
+                                <p className="text-xs font-black text-slate-900">{spot.station}</p>
+                                <p className="text-[9px] font-black text-slate-400 uppercase mt-1.5">Score</p>
+                                <p className="text-base font-black" style={{ color: getAQIColor(spot.pollution_score) }}>
+                                    {Math.round(spot.pollution_score)}
+                                </p>
                             </div>
+                        </Popup>
+                    </Marker>
+                ))}
+            </MapContainer>
+
+            {/* ── Floating Info Panel ── */}
+            <div className="absolute top-4 left-4 z-[1000] w-72 bg-white/90 backdrop-blur-md border border-slate-200 rounded-xl shadow-2xl p-4 pointer-events-auto">
+                {/* Header */}
+                <div className="flex justify-between items-start mb-3">
+                    <div>
+                        <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">{cityName}</h2>
+                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Real-time Environmental Node</span>
+                    </div>
+                    <div
+                        className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest text-white"
+                        style={{ backgroundColor: riskLoading ? '#94a3b8' : getAQIColor(currentAQI) }}
+                    >
+                        {severity}
+                    </div>
+                </div>
+
+                {/* AQI Value */}
+                <div className="flex items-center gap-3 mb-4 relative">
+                    {riskLoading && (
+                        <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center rounded-lg">
+                            <Loader2 size={20} className="text-blue-600 animate-spin" />
+                        </div>
+                    )}
+                    <span className={`text-5xl font-black tracking-tighter text-slate-900 leading-none ${riskLoading ? 'opacity-10' : ''}`}>
+                        {Math.round(currentAQI)}
+                    </span>
+                    <div className="flex flex-col">
+                        <span className="text-xs font-black text-slate-700 uppercase tracking-tighter italic">AQI Index</span>
+                        <div className="flex items-center gap-1 mt-0.5">
+                            <Info size={9} className="text-slate-300" />
+                            <span className="text-[8px] font-bold text-slate-400 uppercase">
+                                {riskLoading ? 'Fetching live data…' : 'Updated 1m ago'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Pollutant Grid */}
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1 mb-3">
+                    Pollutant Breakdown (µg/m³)
+                </p>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                    <PollutantStat icon={Wind} label="PM2.5" value={pollutants.pm25} loading={riskLoading} />
+                    <PollutantStat icon={Wind} label="PM10" value={pollutants.pm10} loading={riskLoading} />
+                    <PollutantStat icon={Thermometer} label="Temp" value={weather.temperature} unit="°C" loading={riskLoading} />
+                    <PollutantStat icon={Droplets} label="Humid" value={weather.humidity} unit="%" loading={riskLoading} />
+                </div>
+
+                {/* Scale Bar */}
+                <div>
+                    <div className="flex justify-between text-[7px] font-black text-slate-300 uppercase tracking-widest mb-1">
+                        <span>Good</span><span>Poor</span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full overflow-hidden flex">
+                        {['#10b981', '#fbbf24', '#f97316', '#e11d48', '#7c3aed'].map((c) => (
+                            <div key={c} className="h-full flex-1" style={{ background: c }} />
                         ))}
                     </div>
                 </div>

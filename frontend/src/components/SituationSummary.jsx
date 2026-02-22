@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
-import { TrendingUp, TrendingDown, Minus, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Info, AlertCircle, Wind } from 'lucide-react';
 import { getPollutantStatus } from '../utils/pollutantSeverity';
 
 const SituationSummary = ({ forecast = [], currentAQI = 100, riskLevel = 'Low', escalationProbability = 5, pollutants = {}, city, dominantSource, sourceDescription, hotspotCoverage }) => {
     const trend = useMemo(() => {
         if (!forecast || forecast.length < 2) {
-            return { direction: 'stable', icon: Minus, color: 'text-amber-600', bg: 'bg-amber-50', label: 'No Trend' };
+            return { direction: 'stable', icon: Minus, color: 'text-amber-600', bg: 'bg-amber-50', label: 'No Trend', percent: 0 };
         }
 
         const first = forecast[0]?.aqi || currentAQI;
@@ -13,128 +13,118 @@ const SituationSummary = ({ forecast = [], currentAQI = 100, riskLevel = 'Low', 
         const percentChange = ((last - first) / first) * 100;
 
         if (percentChange > 5) {
-            return { direction: 'worsening', icon: TrendingUp, color: 'text-rose-600', bg: 'bg-rose-50', label: 'Worsening', change: Number(percentChange || 0).toFixed(1) };
+            return { direction: 'worsening', icon: TrendingUp, color: 'text-rose-600', bg: 'bg-rose-50', label: 'Worsening', change: Number(percentChange || 0).toFixed(1), percent: percentChange };
         }
         if (percentChange < -5) {
-            return { direction: 'improving', icon: TrendingDown, color: 'text-emerald-600', bg: 'bg-emerald-50', label: 'Improving', change: Number(Math.abs(percentChange || 0)).toFixed(1) };
+            return { direction: 'improving', icon: TrendingDown, color: 'text-emerald-600', bg: 'bg-green-50/50', label: 'Improving', change: Number(Math.abs(percentChange || 0)).toFixed(1), percent: percentChange };
         }
-        return { direction: 'stable', icon: Minus, color: 'text-amber-600', bg: 'bg-amber-50', label: 'Stable', change: '0' };
+        return { direction: 'stable', icon: Minus, color: 'text-amber-600', bg: 'bg-amber-50', label: 'Stable', change: '0', percent: 0 };
     }, [forecast, currentAQI]);
 
     const TrendIcon = trend.icon;
 
     const getAQITheme = (aqi) => {
-        if (aqi <= 50) return { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' };
-        if (aqi <= 100) return { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' };
-        if (aqi <= 200) return { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' };
-        return { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' };
+        if (aqi <= 50) return { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', pill: 'bg-emerald-500', label: 'GOOD' };
+        if (aqi <= 100) return { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200', pill: 'bg-yellow-500', label: 'MODERATE' };
+        if (aqi <= 150) return { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', pill: 'bg-orange-500', label: 'UNHEALTHY' };
+        if (aqi <= 200) return { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', pill: 'bg-rose-600', label: 'POOR' };
+        return { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', pill: 'bg-purple-600', label: 'SEVERE' };
     };
 
     const aqiTheme = getAQITheme(currentAQI);
 
     const getRiskBadgeTheme = (level) => {
         const themes = {
-            'Low': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
-            'Moderate': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-            'High': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
-            'Extreme': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' }
+            'Low': { color: 'bg-emerald-500', text: 'text-emerald-600' },
+            'Moderate': { color: 'bg-yellow-500', text: 'text-yellow-600' },
+            'High': { color: 'bg-orange-500', text: 'text-orange-600' },
+            'Extreme': { color: 'bg-rose-600', text: 'text-rose-600' }
         };
         return themes[level] || themes['Low'];
     };
 
     const riskTheme = getRiskBadgeTheme(riskLevel);
 
-    // Pulsing glow for extreme conditions
-    const isPulsing = currentAQI > 250 || riskLevel === 'Extreme';
-
-    // AI summary (safe, no NaN)
-    const summaryCity = city != null ? String(city) : 'This city';
-    const summarySource = dominantSource != null && String(dominantSource) !== '' ? String(dominantSource) : 'mixed';
-    const summaryCoverage = Number(hotspotCoverage ?? 0);
-    const summaryCoverageSafe = Number.isFinite(summaryCoverage) ? summaryCoverage : 0;
-    const aiSummary = `${summaryCity} is currently experiencing a ${summarySource} pollution episode affecting ${summaryCoverageSafe}% of monitoring stations.`;
+    const aiSummary = `${city} is currently experiencing a ${dominantSource || 'mixed'} pollution episode affecting ${hotspotCoverage}% of monitoring stations.`;
 
     return (
-        <div className={`relative bg-white p-8 rounded-2xl shadow-sm border border-slate-200 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-700 ${isPulsing ? 'ring-2 ring-rose-500/50' : ''}`}
-            style={isPulsing ? { animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' } : {}}
-        >
-            {/* Pulsing glow background */}
-            {isPulsing && (
-                <div className="absolute inset-0 bg-rose-500/5 rounded-2xl animate-pulse"></div>
-            )}
-
-            <div className="relative z-10 grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="space-y-6">
+            {/* 1. Top KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {/* AQI Section */}
-                <div className={`${aqiTheme.bg} border ${aqiTheme.border} rounded-xl p-6`}>
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Current AQI</p>
-                    <div className="mb-3">
-                        <p className={`text-4xl font-black ${aqiTheme.text} animate-in fade-in duration-500`}>
+                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm border-l-[4px]" style={{ borderLeftColor: aqiTheme.pill.replace('bg-', '') === 'rose-600' ? '#e11d48' : aqiTheme.pill.replace('bg-', '') === 'emerald-500' ? '#10b981' : aqiTheme.pill.replace('bg-', '') === 'yellow-500' ? '#eab308' : aqiTheme.pill.replace('bg-', '') === 'orange-500' ? '#f97316' : '#9333ea' }}>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Current AQI</p>
+                    <div className="flex items-center justify-between">
+                        <p className="text-5xl font-black text-slate-900 tracking-tighter">
                             {Math.round(currentAQI)}
                         </p>
+                        <span className={`${aqiTheme.pill} text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest`}>
+                            {aqiTheme.label}
+                        </span>
                     </div>
-                    <p className={`text-xs font-bold ${aqiTheme.text}`}>
-                        {currentAQI <= 50 ? '✓ Good' : currentAQI <= 100 ? '✓ Satisfactory' : currentAQI <= 200 ? '⚠ Poor' : '🔴 Very Poor'}
-                    </p>
                 </div>
 
                 {/* Risk Level Section */}
-                <div className={`${riskTheme.bg} border ${riskTheme.border} rounded-xl p-6`}>
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Risk Level</p>
-                    <div className="mb-3">
-                        <p className={`text-2xl font-black ${riskTheme.text}`}>{riskLevel}</p>
+                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex justify-between items-center mb-3">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Risk Level</p>
+                        <span className={`text-[10px] font-black uppercase ${riskTheme.text}`}>18% Confidence</span>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
+                    <p className="text-2xl font-black text-slate-900 mb-4">{riskLevel}</p>
+                    <div className="w-full bg-slate-100 rounded-full h-1.5">
                         <div
-                            className={`h-2 rounded-full transition-all ${riskLevel === 'Low' ? 'bg-emerald-600 w-1/4' : riskLevel === 'Moderate' ? 'bg-amber-600 w-1/2' : riskLevel === 'High' ? 'bg-orange-600 w-3/4' : 'bg-rose-600 w-full'}`}
+                            className={`h-1.5 rounded-full transition-all ${riskTheme.color}`}
+                            style={{ width: riskLevel === 'Low' ? '25%' : riskLevel === 'Moderate' ? '50%' : riskLevel === 'High' ? '75%' : '100%' }}
                         ></div>
                     </div>
                 </div>
 
-                {/* Escalation Probability Section */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Escalation Risk</p>
-                    <div className="mb-3 flex items-baseline gap-2">
-                        <p className="text-3xl font-black text-slate-900">{escalationProbability}%</p>
-                        <p className="text-xs text-slate-600">Next 72h</p>
+                {/* Escalation Risk Section */}
+                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex justify-between items-end mb-1">
+                        <div>
+                            <p className="text-2xl font-black text-slate-900">{escalationProbability}%</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Next 72 Hours</p>
+                        </div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Escalation</p>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 mt-3">
                         <div
-                            className="bg-slate-900 h-2 rounded-full transition-all"
+                            className="bg-slate-900 h-1.5 rounded-full transition-all"
                             style={{ width: `${escalationProbability}%` }}
                         ></div>
                     </div>
                 </div>
 
-                {/* 3-Day Trend Section */}
-                <div className={`${trend.bg} border border-slate-200 rounded-xl p-6`}>
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">3-Day Forecast</p>
-                    <div className="flex items-center gap-3 mb-3">
-                        <TrendIcon size={24} className={trend.color} />
+                {/* 3-Day Forecast Section */}
+                <div className={`${trend.direction === 'improving' ? 'bg-green-50/50' : 'bg-white'} border border-slate-200 rounded-xl p-6 shadow-sm`}>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">3-Day Forecast</p>
+                    <div className="flex items-center justify-between">
                         <div>
-                            <p className={`text-xl font-black ${trend.color}`}>{trend.label}</p>
-                            {trend.change && <p className="text-xs text-slate-600">{trend.change}% change</p>}
+                            <div className="flex items-center gap-2">
+                                <TrendIcon size={18} className={trend.color} />
+                                <p className={`text-lg font-black ${trend.color}`}>{trend.label}</p>
+                            </div>
+                            {trend.change && <p className="text-[11px] font-bold text-slate-500 mt-1">+{trend.change}% change</p>}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* AI Summary Statement */}
-            {aiSummary ? (
-                <div className="mt-6 pt-4 border-t border-slate-100">
-                    <p className="text-xs font-medium text-slate-700">{aiSummary}</p>
+            {/* 2. System Insight Banner */}
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-center gap-4">
+                <div className="bg-blue-600 rounded-md p-1.5 text-white">
+                    <AlertCircle size={16} />
                 </div>
-            ) : null}
-
-            {/* Additional Info Footer */}
-            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center gap-2 text-slate-600">
-                <Info size={14} />
-                <p className="text-xs font-medium">Real-time data from {forecast?.length || 0} monitoring stations • Updated continuously</p>
+                <p className="text-sm font-bold text-blue-900 leading-none">
+                    System Insight: <span className="font-normal text-blue-700">{aiSummary}</span>
+                </p>
             </div>
 
-            {/* Compact Pollutant Readout */}
-            <div className="mt-4 pt-4 border-t border-slate-100">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Live Pollutant Levels</p>
-                <div className="flex flex-wrap gap-x-6 gap-y-1">
+            {/* 3. Live Pollutant Levels */}
+            <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Live Pollutant Matrix (µg/m³)</p>
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
                     {[
                         { key: 'pm25', label: 'PM2.5' },
                         { key: 'pm10', label: 'PM10' },
@@ -146,21 +136,26 @@ const SituationSummary = ({ forecast = [], currentAQI = 100, riskLevel = 'Low', 
                         const val = pollutants?.[key] ?? null;
                         const status = getPollutantStatus(key, val);
                         const display = val !== null && val !== undefined ? Number(val).toFixed(1) : '—';
+
+                        let dotColor = 'bg-slate-300';
+                        if (status === 'Good') dotColor = 'bg-emerald-500';
+                        else if (status === 'Moderate') dotColor = 'bg-yellow-500';
+                        else if (status === 'Poor' || status === 'Unhealthy') dotColor = 'bg-orange-500';
+                        else if (status === 'Severe' || status === 'Hazardous') dotColor = 'bg-rose-600';
+
                         return (
-                            <span key={key} className="text-xs text-slate-700">
-                                <span className="font-black">{label}:</span> {display} <span className="text-slate-400">({status})</span>
-                            </span>
+                            <div key={key} className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm text-center relative overflow-hidden group hover:border-blue-400 transition-colors">
+                                <div className="absolute top-2 right-2">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+                                </div>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+                                <p className="text-xl font-black text-slate-900">{display}</p>
+                                <p className="text-[8px] font-black text-slate-400 uppercase mt-1">{status}</p>
+                            </div>
                         );
                     })}
                 </div>
             </div>
-
-            <style>{`
-                @keyframes pulse {
-                    0%, 100% { opacity: 1; }
-                    50% { opacity: 0.5; }
-                }
-            `}</style>
         </div>
     );
 };

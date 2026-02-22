@@ -8,3 +8,5 @@ python-dotenv
 pillow
 python-multipart
 requests
+torch
+ultralytics

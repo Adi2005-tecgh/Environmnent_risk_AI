@@ -70,9 +70,13 @@ class LiveAQIService:
                 return None
 
             # Safely extract pollutants, weather, forecast, and metadata
-            iaqi = data.get('data', {}).get('iaqi', {})
-            forecast = data.get('data', {}).get('forecast', {})
-            city_info = data.get('data', {}).get('city', {})
+            # WAQI wraps everything under "data"; iaqi has per-pollutant { "v": value }
+            payload = data.get('data') or {}
+            iaqi = payload.get('iaqi') or {}
+            forecast = payload.get('forecast') or {}
+            city_info = payload.get('city') or {}
+            # WAQI typo: "dominentpol" in API
+            dominantpol = payload.get('dominentpol') or payload.get('dominantpol')
 
             # Extract dominant pollutant
             def get_dominant_pollutant():
@@ -87,17 +91,30 @@ class LiveAQIService:
                 valid = {k: v for k, v in pollutants.items() if v is not None}
                 return max(valid, key=valid.get) if valid else None
 
+            # Extract pollutant values: iaqi can be {"pm25": {"v": 169}, ...}
+            def _v(key):
+                o = iaqi.get(key)
+                if o is None or not isinstance(o, dict):
+                    return None
+                val = o.get('v')
+                if val is None:
+                    return None
+                try:
+                    return float(val)
+                except (TypeError, ValueError):
+                    return None
+
             pollution_reading = {
                 # Core AQI
                 'aqi': int(aqi),
-                # Pollutants (µg/m³ or ppb)
-                'pm25': iaqi.get('pm25', {}).get('v'),
-                'pm10': iaqi.get('pm10', {}).get('v'),
-                'no2': iaqi.get('no2', {}).get('v'),
-                'so2': iaqi.get('so2', {}).get('v'),
-                'o3': iaqi.get('o3', {}).get('v'),
-                'co': iaqi.get('co', {}).get('v'),
-                'dominantpol': get_dominant_pollutant(),
+                # Pollutants (µg/m³ or ppb) - explicit floats
+                'pm25': _v('pm25'),
+                'pm10': _v('pm10'),
+                'no2': _v('no2'),
+                'so2': _v('so2'),
+                'o3': _v('o3'),
+                'co': _v('co'),
+                'dominantpol': dominantpol or get_dominant_pollutant(),
                 # Weather data
                 'temperature': iaqi.get('t', {}).get('v'),
                 'humidity': iaqi.get('h', {}).get('v'),

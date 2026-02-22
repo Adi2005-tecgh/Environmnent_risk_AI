@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getForecast, getRisk, getAnomalies, getHotspots } from '../api/api';
+import { getForecast, getForecastByGeo, getRisk, getAnomalies, getHotspots } from '../api/api';
 import CitySelector from '../components/CitySelector';
 import RiskCard from '../components/RiskCard';
 import ForecastChart from '../components/ForecastChart';
@@ -7,8 +7,24 @@ import HotspotMap from '../components/HotspotMap';
 import AnomalyPanel from '../components/AnomalyPanel';
 import { RefreshCw, AlertCircle } from 'lucide-react';
 
+// Accelerated Coordinate Cache for zero-latency lock on major nodes
+const NODE_COORDINATES = {
+    'Delhi': [28.6139, 77.2090],
+    'Mumbai': [19.0760, 72.8777],
+    'Kolkata': [22.5726, 88.3639],
+    'Chennai': [13.0827, 80.2707],
+    'Bengaluru': [12.9716, 77.5946],
+    'Hyderabad': [17.3850, 78.4867],
+    'Ahmedabad': [23.0225, 72.5714],
+    'Pune': [18.5204, 73.8567],
+    'Jaipur': [26.9124, 75.7873],
+    'Lucknow': [26.8467, 80.9462]
+};
+
 const Dashboard = () => {
     const [selectedCity, setSelectedCity] = useState('Delhi');
+    const [coordinates, setCoordinates] = useState(NODE_COORDINATES['Delhi']);
+    const [geoError, setGeoError] = useState(null);
     const [data, setData] = useState({
         forecast: null,
         risk: null,
@@ -20,35 +36,68 @@ const Dashboard = () => {
         risk: true,
         anomalies: true,
         hotspots: true,
+        geo: false
     });
     const [error, setError] = useState(null);
 
     const fetchData = useCallback(async (city) => {
         setError(null);
-        setLoading({ forecast: true, risk: true, anomalies: true, hotspots: true });
+        setGeoError(null);
+        setLoading({ forecast: true, risk: true, anomalies: true, hotspots: true, geo: true });
 
-        // Parallel fetching
-        const fetchers = [
-            { key: 'forecast', fn: getForecast },
-            { key: 'risk', fn: getRisk },
-            { key: 'anomalies', fn: getAnomalies },
-            { key: 'hotspots', fn: getHotspots }
-        ];
+        try {
+            // 1. Resolve Geospatial Lock
+            let lat, lon;
+            if (NODE_COORDINATES[city]) {
+                [lat, lon] = NODE_COORDINATES[city];
+                console.log(`Node Lock: Cached coordinates for ${city} [${lat}, ${lon}]`);
+            } else {
+                console.log(`Node Lock: Geocoding unknown node ${city}`);
+                const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city + ', India')}&limit=1`, {
+                    headers: { 'User-Agent': 'AeroNova-Intelligence/1.0' }
+                });
+                const geoData = await geoRes.ok ? await geoRes.json() : [];
 
-        fetchers.forEach(async ({ key, fn }) => {
-            try {
-                const response = await fn(city);
-                setData(prev => ({ ...prev, [key]: response.data }));
-            } catch (err) {
-                console.error(`Error fetching ${key}:`, err);
-                // We don't fail the whole dashboard for one component failure
-            } finally {
-                setLoading(prev => ({ ...prev, [key]: false }));
+                if (geoData && geoData.length > 0) {
+                    lat = parseFloat(geoData[0].lat);
+                    lon = parseFloat(geoData[0].lon);
+                } else {
+                    throw new Error(`Geospatial unlock failed for ${city}`);
+                }
             }
-        });
 
-        // Check if everything failed
-        // (This is a simplified check, ideally we'd use Promise.allSettled)
+            setCoordinates({ lat, lon });
+            setLoading(prev => ({ ...prev, geo: false }));
+
+            // 2. Parallel Stream Acquisition
+            const fetchers = [
+                { key: 'forecast', fn: () => getForecastByGeo(lat, lon) },
+                { key: 'risk', fn: () => getRisk(city) },
+                { key: 'anomalies', fn: () => getAnomalies(city) },
+                { key: 'hotspots', fn: () => getHotspots(city) }
+            ];
+
+            fetchers.forEach(async ({ key, fn }) => {
+                try {
+                    const response = await fn();
+                    setData(prev => ({ ...prev, [key]: response.data }));
+                } catch (err) {
+                    console.error(`Stream Acquisition Failure (${key}):`, err);
+                    // Single stream failure is non-critical
+                } finally {
+                    setLoading(prev => ({ ...prev, [key]: false }));
+                }
+            });
+
+        } catch (err) {
+            console.error('Critical Node Lock Failure:', err);
+            setGeoError(err.message || 'Signal Lost');
+            // Fallback: try to fetch by city name directly if geo fails
+            getForecast(city).then(res => setData(prev => ({ ...prev, forecast: res.data }))).finally(() => setLoading(prev => ({ ...prev, forecast: false, geo: false })));
+            getRisk(city).then(res => setData(prev => ({ ...prev, risk: res.data }))).finally(() => setLoading(prev => ({ ...prev, risk: false })));
+            getAnomalies(city).then(res => setData(prev => ({ ...prev, anomalies: res.data }))).finally(() => setLoading(prev => ({ ...prev, anomalies: false })));
+            getHotspots(city).then(res => setData(prev => ({ ...prev, hotspots: res.data }))).finally(() => setLoading(prev => ({ ...prev, hotspots: false })));
+        }
     }, []);
 
     useEffect(() => {
@@ -71,7 +120,7 @@ const Dashboard = () => {
                         onClick={handleRefresh}
                         className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm"
                     >
-                        <RefreshCw size={20} />
+                        <RefreshCw size={20} className={loading.geo ? "animate-spin" : ""} />
                     </button>
                 </div>
             </div>
@@ -97,7 +146,14 @@ const Dashboard = () => {
                 <div className="lg:col-span-8 space-y-6">
                     <div className="grid grid-cols-1 gap-6 h-full">
                         <ForecastChart data={data.forecast} loading={loading.forecast} />
-                        <HotspotMap data={data.hotspots} loading={loading.hotspots} />
+                        <HotspotMap
+                            data={data.hotspots}
+                            loading={loading.hotspots || loading.geo}
+                            center={coordinates?.lat ? [coordinates.lat, coordinates.lon] : null}
+                            cityName={selectedCity}
+                            riskData={data.risk}
+                            riskLoading={loading.risk}
+                        />
                     </div>
                 </div>
             </div>

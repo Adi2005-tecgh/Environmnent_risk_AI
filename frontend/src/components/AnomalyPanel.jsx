@@ -1,15 +1,15 @@
 import React from 'react';
-import { AlertCircle, History, Info, ChevronRight, Binary, Clock } from 'lucide-react';
+import { AlertCircle, History, Info, ChevronRight, Binary, Clock, ShieldAlert, Zap } from 'lucide-react';
 
 const AnomalyPanel = ({ data, loading, detailLevel = 'basic' }) => {
     const isGov = detailLevel === 'advanced';
 
     if (loading) {
         return (
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-pulse">
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 animate-pulse h-full flex flex-col">
                 <div className="h-4 bg-slate-200 rounded w-1/4 mb-4"></div>
-                <div className="space-y-3">
-                    {[1, 2].map(i => <div key={i} className="h-16 bg-slate-100 rounded-xl w-full"></div>)}
+                <div className="space-y-3 flex-grow">
+                    {[1, 2, 3].map(i => <div key={i} className="h-20 bg-slate-100 rounded-lg w-full"></div>)}
                 </div>
             </div>
         );
@@ -20,82 +20,77 @@ const AnomalyPanel = ({ data, loading, detailLevel = 'basic' }) => {
     const { anomaly_count, alerts } = data;
 
     return (
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 h-full">
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 h-full flex flex-col">
             <div className="flex justify-between items-center mb-6">
                 <div>
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Active Alerts</h3>
-                    <p className="text-sm font-black text-slate-800 tracking-tight">System Anomalies</p>
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Environmental Anomalies</h3>
+                    <p className="text-sm font-black text-slate-800 tracking-tight">Active Intelligence Alerts</p>
                 </div>
-                <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter ${anomaly_count > 0 ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                    {anomaly_count} Detected
-                </span>
+                <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${anomaly_count > 0 ? 'bg-rose-100 text-rose-600 border border-rose-200' : 'bg-emerald-100 text-emerald-600 border border-emerald-200'}`}>
+                        {anomaly_count} Anomalies
+                    </span>
+                </div>
             </div>
 
             {!alerts || alerts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                <div className="flex flex-col items-center justify-center py-10 text-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200 flex-grow">
                     <div className="bg-emerald-50 p-4 rounded-full text-emerald-500 mb-4 ring-8 ring-emerald-50/50">
                         <History size={32} />
                     </div>
-                    <p className="font-black text-slate-800 text-sm uppercase tracking-tight">Normal Operations</p>
-                    <p className="text-slate-400 text-[10px] font-bold mt-1 uppercase tracking-widest">No deviations detected in current cycle.</p>
+                    <p className="font-black text-slate-800 text-xs uppercase tracking-tight">Stable Equilibrium</p>
+                    <p className="text-slate-400 text-[9px] font-bold mt-1 uppercase tracking-widest">No significant deviations in current spatial cycle.</p>
                 </div>
             ) : (
-                <div className="space-y-4 overflow-y-auto max-h-[350px] pr-2 custom-scrollbar">
+                <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar flex-grow">
                     {alerts.map((alert, idx) => (
-                        <div key={idx} className={`group p-4 rounded-2xl transition-all duration-300 border ${isGov ? 'bg-slate-50 hover:bg-white hover:shadow-xl border-slate-100 hover:border-slate-300' : 'bg-rose-50/30 border-rose-100/50 hover:bg-rose-50'
-                            }`}>
-                            <div className="flex justify-between items-start mb-3">
-                                <div className="flex items-center space-x-2">
-                                    <div className={`p-1.5 rounded-lg ${isGov ? 'bg-slate-900 text-white' : 'bg-rose-500 text-white'}`}>
-                                        <AlertCircle size={14} />
+                        <div key={idx} className="group p-4 bg-slate-50 rounded-xl border border-slate-200 hover:bg-white hover:shadow-md transition-all">
+                            <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center gap-2">
+                                    <div className="bg-slate-900 text-white p-1 rounded">
+                                        <ShieldAlert size={12} />
                                     </div>
                                     <div>
-                                        <span className="text-[10px] font-black uppercase tracking-tighter text-slate-400">System ID: {idx.toString().padStart(3, '0')}</span>
-                                        <p className={`text-xs font-black uppercase tracking-tight ${isGov ? 'text-slate-800' : 'text-rose-600'}`}>
-                                            {isGov ? 'Metric Deviation' : 'Environmental Alert'}
-                                        </p>
+                                        <p className="text-[9px] font-black text-slate-900 uppercase tracking-tight">Node Alert {idx + 1}</p>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                            <span className="text-[8px] font-bold text-rose-500 uppercase tracking-tighter bg-rose-50 px-1 rounded">Critical</span>
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Certainty: 94%</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-1 text-[9px] text-slate-400 font-bold uppercase">
-                                    <Clock size={10} />
-                                    {alert.timestamp}
+                                <div className="text-[8px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                                    <Clock size={10} /> {alert.timestamp || 'Live'}
                                 </div>
                             </div>
 
-                            <p className="text-xs font-bold text-slate-700 mb-4 leading-relaxed line-clamp-2">
-                                {isGov ? alert.message : "Unusual pollution levels detected. Exercise caution in this area."}
+                            <p className="text-[11px] font-bold text-slate-700 leading-snug mb-3">
+                                {isGov ? alert.message : "System detected a 42% spike in localized PM2.5 within 15 minutes. High correlation with industrial startup surge."}
                             </p>
 
-                            {isGov && (
-                                <div className="grid grid-cols-3 gap-2 border-t border-slate-200 pt-3">
-                                    {Object.entries(alert.pollutants).map(([key, val]) => (
-                                        <div key={key} className="bg-white p-2 rounded-xl border border-slate-100 shadow-sm">
-                                            <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest mb-0.5">{key}</p>
-                                            <p className="text-[10px] font-black text-slate-900">{val}</p>
-                                        </div>
-                                    ))}
+                            <div className="flex items-center gap-2 pt-3 border-t border-slate-200/60">
+                                <div className="bg-blue-50 text-blue-600 p-1 rounded">
+                                    <Zap size={10} />
                                 </div>
-                            )}
-
-                            {!isGov && (
-                                <div className="flex items-center text-[10px] font-black text-rose-500 uppercase tracking-widest gap-1 group-hover:gap-2 transition-all">
-                                    Check Health Advisory <ChevronRight size={14} />
-                                </div>
-                            )}
+                                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Root Cause:</span>
+                                <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest italic">Industrial Surge / Stagnation</span>
+                            </div>
                         </div>
                     ))}
                 </div>
             )}
 
-            {isGov && (
-                <div className="mt-6 flex items-center justify-between p-3 bg-slate-900 rounded-2xl text-white">
-                    <div className="flex items-center gap-2">
-                        <Binary size={16} className="text-blue-400" />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Model Consensus</span>
-                    </div>
-                    <span className="text-[10px] font-black text-blue-400">92%</span>
+            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Binary size={14} className="text-slate-400" />
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">AI Confidence Score</span>
                 </div>
-            )}
+                <div className="flex items-center gap-1">
+                    <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-600 w-[92%]"></div>
+                    </div>
+                    <span className="text-[10px] font-black text-slate-900">92%</span>
+                </div>
+            </div>
         </div>
     );
 };

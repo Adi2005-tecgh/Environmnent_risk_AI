@@ -58,7 +58,17 @@ def get_hotspots(city):
         
         X_scaled = scaler.transform(features)
         
-        clusters = model.fit_predict(X_scaled)
+        # Adaptive clustering based on number of stations
+        n_stations = len(features)
+        if n_stations < 10:
+            # For smaller cities, use more lenient clustering
+            from sklearn.cluster import DBSCAN
+            adaptive_model = DBSCAN(eps=0.5, min_samples=max(2, n_stations // 3))
+            clusters = adaptive_model.fit_predict(X_scaled)
+        else:
+            # Use original model for larger cities
+            clusters = model.fit_predict(X_scaled)
+        
         pivot_df["cluster"] = clusters
         
         hotspots = pivot_df[pivot_df["cluster"] != -1].copy()

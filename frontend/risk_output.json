@@ -1,0 +1,41 @@
+{
+  "city": "Delhi",
+  "data_source": "live",
+  "description": "Significant pollution detected. Vulnerable groups should stay indoors; others should limit prolonged outdoor exertion.",
+  "early_warning": null,
+  "environmental_context": {
+    "humidity": 82.9,
+    "pressure": 986.2,
+    "temperature": 14.6,
+    "wind_speed": 0.3
+  },
+  "escalation_probability": 20.0,
+  "latest_aqi": 197.0,
+  "legacy_risk_level": "High",
+  "pollutants": {
+    "co": 1.6,
+    "no2": 40.2,
+    "o3": 1.4,
+    "pm10": 138.0,
+    "pm25": 197.0,
+    "so2": 8.6
+  },
+  "pollution_source": "Combustion-driven",
+  "recommendations": [
+    {
+      "action": "Implement traffic restrictions in hotspot zones",
+      "priority": 2,
+      "reason": "NO2=40.2 ppb indicates heavy traffic; PM2.5=197.0 \u00b5g/m\u00b3 poses health risk",
+      "time_horizon": "Immediate"
+    },
+    {
+      "action": "Issue respiratory health alert; increase medical preparedness",
+      "priority": 2,
+      "reason": "High PM2.5=197.0 + humidity=83% increases respiratory risk",
+      "time_horizon": "Immediate"
+    }
+  ],
+  "risk_level": "High",
+  "risk_score": 59,
+  "source_description": "High PM2.5 indicates combustion sources (vehicles, industry, biomass burning)"
+}

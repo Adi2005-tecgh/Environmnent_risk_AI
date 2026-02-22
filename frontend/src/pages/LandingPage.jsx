@@ -45,7 +45,7 @@ const LandingPage = () => {
 
                     {/* Government Option */}
                     <button
-                        onClick={() => navigate('/government')}
+                        onClick={() => navigate('/government-login')}
                         className="group relative bg-white p-8 rounded-3xl shadow-xl border border-slate-200 hover:border-gov-blue transition-all duration-300 transform hover:-translate-y-2 text-left"
                     >
                         <div className="bg-blue-50 text-gov-blue p-3 rounded-2xl w-fit mb-6 group-hover:bg-gov-blue group-hover:text-white transition-colors">

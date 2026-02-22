@@ -345,6 +345,26 @@ class EnvironmentalIntelligence:
         logger.info(f"[RECOMMENDATIONS] Generated {len(recommendations)} actions for {risk_category} risk")
         return recommendations
 
+    def generate_health_tip(self, context: Dict, risk_category: str) -> str:
+        """
+        Generate a concise, health-focused tip for citizens.
+        """
+        aqi = context['aqi']
+        pm25 = context['pollutants'].get('pm25') or 0
+        
+        if risk_category == "Critical":
+            return "Air quality is hazardous. Avoid all outdoor physical activity and wear an N95 mask if you must go outside."
+        elif risk_category == "High":
+            return "Significant pollution detected. Vulnerable groups should stay indoors; others should limit prolonged outdoor exertion."
+        elif risk_category == "Moderate":
+            if pm25 > 35:
+                return "Particulate levels are slightly elevated. Sensitive individuals should consider reducing heavy outdoor work."
+            return "Air quality is acceptable; however, some individuals may be sensitive to specific pollutants."
+        else:
+            if aqi < 50:
+                return "Excellent air quality today. A perfect time for outdoor activities and fresh air ventilation."
+            return "Air quality is good. Business as usual for most citizens."
+
 
 # Global singleton instance
 _environmental_intelligence = None

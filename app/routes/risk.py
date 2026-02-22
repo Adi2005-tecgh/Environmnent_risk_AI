@@ -122,6 +122,15 @@ def get_risk(city):
             'risk_level': risk_category,
             'escalation_probability': round(escalation_prob * 100, 1),
             'latest_aqi': round(latest_aqi, 1),
+            # Live pollutant values (from WAQI API or None if unavailable)
+            'pollutants': {
+                'pm25': context['pollutants'].get('pm25'),
+                'pm10': context['pollutants'].get('pm10'),
+                'no2':  context['pollutants'].get('no2'),
+                'so2':  context['pollutants'].get('so2'),
+                'o3':   context['pollutants'].get('o3'),
+                'co':   context['pollutants'].get('co'),
+            },
             # Pollution source intelligence
             'pollution_source': source_type,
             'source_description': source_description,
@@ -142,6 +151,8 @@ def get_risk(city):
             'recommendations': recommendations[:3],  # Top 3 recommendations
             # Legacy model score for validation
             'legacy_risk_level': legacy_risk_map.get(legacy_risk_class, "Unknown"),
+            # Health Tip / Description
+            'description': intelligence.generate_health_tip(context, risk_category),
         }
         
         return jsonify(response), 200

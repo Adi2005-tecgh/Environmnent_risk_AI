@@ -28,6 +28,9 @@ class Config:
     HOTSPOT_MODEL_PATH = os.path.join(MODEL_FOLDER, 'hotspot_dbscan.pkl')
     HOTSPOT_SCALER_PATH = os.path.join(MODEL_FOLDER, 'hotspot_scaler.pkl')
     
+    VIOLATION_MODEL_PATH = os.path.join(MODEL_FOLDER, 'violation_classifier.h5')
+    FIRE_SMOKE_MODEL_PATH = os.path.join(MODEL_FOLDER, 'best.pt')
+    
     # Dataset Paths
     AQI_DATASET_PATH = os.path.join(DATA_FOLDER, 'final_hybrid_india_aqi_dataset (3).csv')
     HOURLY_DATASET_PATH = os.path.join(DATA_FOLDER, 'city_hour.csv')

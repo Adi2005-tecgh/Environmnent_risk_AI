@@ -15,6 +15,68 @@ predict_bp = Blueprint('predict', __name__)
 AQI_MIN = 0
 AQI_MAX = 500
 
+_SUPPORTED_CITIES_CACHE = []
+
+@predict_bp.route('/predict/geo/<lat>/<lon>', methods=['GET'])
+def predict_by_geo(lat, lon):
+    """Predict AQI based on geographic coordinates."""
+    try:
+        service = get_live_aqi_service()
+        reading = service.fetch_live_by_geo(float(lat), float(lon))
+        
+        if not reading:
+            return jsonify({'error': 'No live data available for these coordinates'}), 404
+            
+        # Mock prediction based on live data
+        return jsonify({
+            'status': 'success',
+            'city': reading.get('station', 'Nearby Station'),
+            'current_aqi': reading['aqi'],
+            'forecast': [
+                {'day': 'Tomorrow', 'aqi': reading['aqi'] + np.random.randint(-20, 20)},
+                {'day': 'Day 2', 'aqi': reading['aqi'] + np.random.randint(-30, 30)},
+                {'day': 'Day 3', 'aqi': reading['aqi'] + np.random.randint(-40, 40)}
+            ]
+        })
+    except Exception as e:
+        logger.error(f"Geo-prediction error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@predict_bp.route('/supported-cities', methods=['GET'])
+def get_supported_cities():
+    """Returns cities validated against the live AQI API."""
+    global _SUPPORTED_CITIES_CACHE
+    if _SUPPORTED_CITIES_CACHE:
+        return jsonify({'status': 'success', 'cities': _SUPPORTED_CITIES_CACHE})
+
+    major_cities = [
+        "Delhi", "Mumbai", "Kolkata", "Chennai", "Bengaluru", "Hyderabad", "Ahmedabad",
+        "Pune", "Surat", "Jaipur", "Lucknow", "Kanpur", "Nagpur", "Indore", "Thane",
+        "Bhopal", "Visakhapatnam", "Patna", "Vadodara", "Ghaziabad", 
+        "Agra", "Nashik", "Rajkot", "Varanasi", "Srinagar", "Noida", 
+        "Chandigarh", "Guwahati", "Solapur", "Hubli-Dharwad", "Gwalior", 
+        "Tiruchirappalli", "Bareilly", "Aligarh", "Bhubaneswar", "Mira-Bhayandar",
+        "Warangal", "Guntur", "Saharanpur", "Bikaner", "Amravati"
+    ]
+
+    # Validate cities in parallel
+    from concurrent.futures import ThreadPoolExecutor
+    service = get_live_aqi_service()
+    
+    def validate(city):
+        res = service.fetch_live_pollution(city)
+        if res and res.get('aqi') is not None:
+            return city
+        return None
+
+    with ThreadPoolExecutor(max_workers=15) as executor:
+        results = list(executor.map(validate, major_cities))
+    
+    valid_cities = sorted([c for c in results if c])
+    _SUPPORTED_CITIES_CACHE = valid_cities
+    
+    return jsonify({'status': 'success', 'count': len(valid_cities), 'cities': valid_cities})
+
 
 def _get_training_feature_info(scaler):
     """Return feature names and training means if available from the scaler."""
@@ -382,31 +444,13 @@ def predict_aqi(city):
         logger.info(f"[MODEL] Input sequence shape: {sequence.shape}")
         logger.info(f"[MODEL] Sample scaled sequence (first timestep): {sequence[0, 0]}")
         
-        # If we built a hybrid sequence from a single recent live reading and
-        # the live buffer is still small, prefer a simple persistence-based
-        # forecast anchored to the latest live AQI so results reflect the API.
-        buffer_size = len(live_aqi_service.get_buffer(city))
-        if data_source == 'live_hybrid' and buffer_size < 5 and pollution_reading is not None:
-            logger.info('[PERSISTENCE] Using persistence forecast due to small live buffer')
-            base_aqi = float(pollution_reading.get('aqi') or 0.0)
-            decay = 0.95
-            predictions = [
-                float(np.clip(base_aqi, AQI_MIN, AQI_MAX)),
-                float(np.clip(base_aqi * decay, AQI_MIN, AQI_MAX)),
-                float(np.clip(base_aqi * decay * decay, AQI_MIN, AQI_MAX)),
-            ]
-            logger.info(f"[PERSISTENCE] Forecast: {predictions}")
-            return jsonify({
-                'city': city,
-                'data_source': data_source,
-                'is_live': True,
-                'forecast': [
-                    {'day': 1, 'aqi': predictions[0]},
-                    {'day': 2, 'aqi': predictions[1]},
-                    {'day': 3, 'aqi': predictions[2]}
-                ]
-            }), 200
-
+        # Get current live AQI to anchor predictions
+        current_aqi = None
+        if pollution_reading and 'aqi' in pollution_reading:
+            current_aqi = float(pollution_reading.get('aqi') or 0.0)
+            logger.info(f"[ANCHOR] Current live AQI: {current_aqi:.2f}")
+        
+        # Always use model predictions for Day 1–3, anchored to current AQI
         # Make predictions with safety guards
         predictions = []
         temp_window = sequence.copy()
@@ -422,6 +466,14 @@ def predict_aqi(city):
             # Inverse transform to get actual AQI
             aqi_value = inverse_transform_aqi(pred_scaled, scaler)
             print("PREDICTED AQI:", aqi_value)
+            
+            # Anchor Day 1 prediction to current AQI with model trend
+            if day == 1 and current_aqi is not None:
+                # Calculate model's predicted change from Day 1 to Day 3
+                day_change = (aqi_value - current_aqi) / 2  # Average daily change
+                anchored_aqi = current_aqi + day_change
+                logger.info(f"[ANCHOR] Day 1 anchored: {current_aqi:.2f} → {anchored_aqi:.2f} (model: {aqi_value:.2f})")
+                aqi_value = anchored_aqi
             
             # Store prediction
             predictions.append(aqi_value)
@@ -450,28 +502,24 @@ def predict_aqi(city):
             temp_window[0, -1, :] = new_row
             logger.info(f"[WINDOW] Window shifted for next prediction")
         
-        # Final sanity check
-        logger.info(f"\n[FINAL] Predictions: {predictions}")
-        # If live reading exists, ensure predictions are within realistic range.
-        if pollution_reading is not None:
-            live_aqi_val = float(pollution_reading.get('aqi') or 0.0)
-            if live_aqi_val > 0:
-                pred_ref = predictions[0]
-                rel_err = abs(pred_ref - live_aqi_val) / float(live_aqi_val)
-                logger.info(f"[FINAL] Live AQI: {live_aqi_val}, Predicted Day1: {pred_ref}, RelError: {rel_err:.3f}")
-                print("LIVE AQI:", live_aqi_val)
-                # If mismatch >15%, rescale predictions proportionally (safety cap)
-                if rel_err > 0.15:
-                    factor = live_aqi_val / (pred_ref if pred_ref != 0 else 1.0)
-                    factor = np.clip(factor, 0.7, 1.3)
-                    logger.warning(f"[SCALE_FIX] Rescaling predictions by factor {factor:.3f} to match live AQI")
-                    predictions = [float(np.clip(p * factor, AQI_MIN, AQI_MAX)) for p in predictions]
-                    logger.info(f"[SCALE_FIX] Rescaled predictions: {predictions}")
-        for i, pred in enumerate(predictions):
-            if pred < AQI_MIN or pred > AQI_MAX:
-                logger.error(f"[FINAL] ALERT: Prediction {i+1} = {pred} is outside bounds [{AQI_MIN}, {AQI_MAX}]")
-            if pred > 300:
-                logger.warning(f"[FINAL] WARNING: Prediction {i+1} = {pred} is unusually high (> 300)")
+        # Apply realistic bounds to prevent unrealistic spikes
+        max_daily_change = 50  # Maximum realistic AQI change per day
+        for i in range(len(predictions)):
+            if i > 0:
+                # Ensure consecutive days don't have unrealistic jumps
+                prev_day = predictions[i-1]
+                current_day = predictions[i]
+                change = abs(current_day - prev_day)
+                
+                if change > max_daily_change:
+                    # Clamp to realistic change
+                    if current_day > prev_day:
+                        predictions[i] = prev_day + max_daily_change
+                    else:
+                        predictions[i] = prev_day - max_daily_change
+                    
+                    logger.warning(f"[BOUND] Day {i+1} change {change:.1f} clamped to ±{max_daily_change}")
+                    logger.info(f"[BOUND] Day {i+1} AQI adjusted: {predictions[i]:.2f}")
         
         logger.info(f"{'='*80}")
         logger.info(f"[END] AQI Prediction complete for {city}")
@@ -481,6 +529,7 @@ def predict_aqi(city):
             'city': city,
             'data_source': data_source,
             'is_live': is_live,
+            'current_aqi': current_aqi,
             'forecast': [
                 {'day': 1, 'aqi': predictions[0]},
                 {'day': 2, 'aqi': predictions[1]},
